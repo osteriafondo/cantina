@@ -1,2 +1,2 @@
 # cantina
-gestione inventario vini Osteria Fondo
+Gestione inventario vini Osteria Fondo
