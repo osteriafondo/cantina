@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cantina — Osteria Fondo</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F5F0;
+    --surface: #FFFFFF;
+    --border: #E2DDD6;
+    --text: #1A1714;
+    --muted: #7A756E;
+    --hint: #B0AAA2;
+    --red: #C0392B;
+    --red-bg: #FDF0EE;
+    --green: #2E7D32;
+    --green-bg: #F0F7F0;
+    --amber: #9C6A00;
+    --amber-bg: #FFF8EC;
+    --accent: #1A1714;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--text);
+    color: #F7F5F0;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.02em; }
+  header span { font-size: 12px; opacity: 0.55; }
+
+  .sync-bar {
+    background: var(--amber-bg);
+    border-bottom: 1px solid #E8D49A;
+    padding: 8px 1.25rem;
+    font-size: 12px;
+    color: var(--amber);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sync-bar.ok { background: var(--green-bg); border-color: #A5D6A7; color: var(--green); }
+  .sync-bar.err { background: var(--red-bg); border-color: #FFCDD2; color: var(--red); }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1rem;
+    gap: 0;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color 0.15s;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+  .main { padding: 1rem 1.25rem; max-width: 680px; margin: 0 auto; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 1.25rem;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .stat-value { font-size: 20px; font-weight: 600; color: var(--text); }
+  .stat-value.warn { color: var(--red); }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 1rem;
+  }
+  .search {
+    flex: 1;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+  }
+  .search:focus { border-color: var(--text); }
+  .filter-btn {
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .filter-btn.on { background: var(--amber-bg); color: var(--amber); border-color: #E8D49A; }
+
+  .list-label { font-size: 11px; color: var(--hint); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .wine-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .wine-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.15s;
+  }
+  .wine-card.low { border-left: 3px solid var(--red); padding-left: 11px; }
+  .wine-card.zero { opacity: 0.45; }
+
+  .wine-info { flex: 1; min-width: 0; }
+  .wine-name { font-size: 14px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wine-sub { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .low-badge {
+    font-size: 10px;
+    background: var(--red-bg);
+    color: var(--red);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    font-weight: 500;
+    vertical-align: middle;
+  }
+
+  .qty-ctrl { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .qty-btn {
+    width: 32px; height: 32px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-size: 18px;
+    color: var(--text);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .qty-btn:active { background: var(--bg); }
+  .qty-num { font-size: 16px; font-weight: 600; min-width: 30px; text-align: center; color: var(--text); }
+  .qty-num.low { color: var(--red); }
+
+  .empty { text-align: center; padding: 3rem 1rem; color: var(--hint); font-size: 13px; }
+
+  .add-section {
+    margin-top: 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.125rem;
+  }
+  .add-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .add-row { display: flex; gap: 7px; flex-wrap: wrap; }
+  .add-row input {
+    flex: 1;
+    min-width: 110px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg);
+    outline: none;
+  }
+  .add-row input:focus { border-color: var(--text); background: var(--surface); }
+  .add-row input[type=number] { max-width: 80px; }
+  .add-btn {
+    padding: 8px 16px;
+    border: 1px solid var(--text);
+    border-radius: var(--radius-sm);
+    background: var(--text);
+    color: #F7F5F0;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .add-btn:active { opacity: 0.85; }
+
+  /* LOG */
+  .log-list { display: flex; flex-direction: column; gap: 1px; }
+  .log-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .log-row:last-child { border-bottom: none; }
+  .log-time { color: var(--hint); font-size: 11px; min-width: 42px; flex-shrink: 0; }
+  .log-cat { font-size: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; color: var(--muted); flex-shrink: 0; }
+  .log-name { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-delta { font-weight: 600; font-size: 13px; flex-shrink: 0; }
+  .log-delta.pos { color: var(--green); }
+  .log-delta.neg { color: var(--red); }
+  .log-tot { font-size: 11px; color: var(--hint); flex-shrink: 0; }
+
+  /* Loading */
+  .loading { text-align: center; padding: 3rem; color: var(--muted); font-size: 14px; }
+  .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 8px; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 480px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .field-row { grid-template-columns: 1fr; }
+  }
+
+  /* Drawer nuovo vino */
+  .drawer-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(26,23,20,0.45);
+    z-index: 200;
+  }
+  .drawer-overlay.open { display: block; }
+  .drawer {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-radius: 16px 16px 0 0;
+    padding: 0 1.25rem 2rem;
+    max-height: 92vh;
+    overflow-y: auto;
+    z-index: 201;
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+  }
+  .drawer.open { transform: translateY(0); }
+  .drawer-handle {
+    width: 36px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 12px auto 20px;
+  }
+  .drawer-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 20px; }
+  .field-group { display: flex; flex-direction: column; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .field label .req { color: var(--red); margin-left: 2px; }
+  .field input, .field select {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg);
+    outline: none;
+    width: 100%;
+  }
+  .field input:focus, .field select:focus { border-color: var(--text); background: var(--surface); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .drawer-footer { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-cancel {
+    flex: 1; padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-size: 14px; color: var(--muted);
+    cursor: pointer;
+  }
+  .btn-save {
+    flex: 2; padding: 12px;
+    border: 1px solid var(--text);
+    border-radius: var(--radius-sm);
+    background: var(--text);
+    font-size: 14px; font-weight: 600; color: #F7F5F0;
+    cursor: pointer;
+  }
+  .btn-save:active { opacity: 0.85; }
+  .add-section { margin-top: 1.25rem; }
+  .add-trigger {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 20px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    font-size: 13px; color: var(--muted);
+    cursor: pointer; width: 100%;
+  }
+  .add-trigger:hover { border-color: var(--text); color: var(--text); }
+  .err-msg { font-size: 12px; color: var(--red); margin-top: 4px; display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cantina · Osteria Fondo</h1>
+  <span id="last-sync">—</span>
+</header>
+
+<div class="sync-bar" id="sync-bar">
+  <div class="sync-dot"></div>
+  <span id="sync-msg">Connessione al Google Sheet...</span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="setTab('bianchi')">Bianchi</div>
+  <div class="tab" onclick="setTab('rossi')">Rossi</div>
+  <div class="tab" onclick="setTab('bollicine')">Bollicine</div>
+  <div class="tab" onclick="setTab('log')">Registro</div>
+</div>
+
+<!-- Drawer nuovo vino -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="chiudiDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title">Aggiungi nuovo vino</div>
+  <div class="field-group">
+    <div class="field">
+      <label>Nome vino <span class="req">*</span></label>
+      <input type="text" id="d-nome" placeholder="es. Barolo Monprivato" />
+      <div class="err-msg" id="err-nome">Il nome è obbligatorio</div>
+    </div>
+    <div class="field">
+      <label>Tipologia <span class="req">*</span></label>
+      <select id="d-tipo">
+        <option value="">— Seleziona —</option>
+        <option value="bianchi">Bianco</option>
+        <option value="rossi">Rosso</option>
+        <option value="bollicine">Bollicine</option>
+      </select>
+      <div class="err-msg" id="err-tipo">Seleziona una tipologia</div>
+    </div>
+    <div class="field">
+      <label>Produttore / Cantina</label>
+      <input type="text" id="d-produttore" placeholder="es. Giuseppe Mascarello" />
+    </div>
+    <div class="field">
+      <label>Vitigni</label>
+      <input type="text" id="d-vitigni" placeholder="es. Nebbiolo" />
+    </div>
+    <div class="field">
+      <label>Provenienza</label>
+      <input type="text" id="d-regione" placeholder="es. IT, Piemonte" />
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Prezzo acquisto (IVA esclusa)</label>
+        <input type="number" id="d-acquisto" placeholder="0.00" min="0" step="0.01" />
+      </div>
+      <div class="field">
+        <label>Prezzo in carta</label>
+        <input type="number" id="d-vendita" placeholder="0.00" min="0" step="0.01" />
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Bottiglie in magazzino</label>
+        <input type="number" id="d-qty" placeholder="0" min="0" />
+      </div>
+      <div class="field">
+        <label>Soglia minima</label>
+        <input type="number" id="d-soglia" placeholder="3" min="1" />
+      </div>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button class="btn-cancel" onclick="chiudiDrawer()">Annulla</button>
+    <button class="btn-save" onclick="salvaDrawer()">Aggiungi vino</button>
+  </div>
+</div>
+
+<div class="main">
+  <div id="pane-bianchi"></div>
+  <div id="pane-rossi" style="display:none"></div>
+  <div id="pane-bollicine" style="display:none"></div>
+  <div id="pane-log" style="display:none">
+    <div class="list-label" style="margin-top:.25rem">Operazioni recenti</div>
+    <div class="log-list" id="log-list">
+      <div class="empty">Nessuna operazione ancora.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const URL = 'https://script.google.com/macros/s/AKfycbybqP4MzxDZmoWLvccj4bCXEMMssdqnqDeBKGpTo6HRjE8zBXlHNCTebwHggjWvCuec/exec';
+
+let db = { bianchi: [], rossi: [], bollicine: [] };
+let logs = [];
+let activeTab = 'bianchi';
+let filterLow = { bianchi: false, rossi: false, bollicine: false };
+let searchQ = { bianchi: '', rossi: '', bollicine: '' };
+
+// ── Sync ──────────────────────────────────────────────────────────────────────
+
+function setSyncStatus(stato, msg) {
+  const bar = document.getElementById('sync-bar');
+  const txt = document.getElementById('sync-msg');
+  bar.className = 'sync-bar ' + (stato === 'ok' ? 'ok' : stato === 'err' ? 'err' : '');
+  txt.textContent = msg;
+}
+
+async function fetchData() {
+  setSyncStatus('', 'Connessione al Google Sheet...');
+  renderLoading(activeTab);
+  try {
+    const res = await fetch(URL + '?action=leggi');
+    const dati = await res.json();
+    if (dati.errore) throw new Error(dati.errore);
+    db.bianchi = dati.bianchi || [];
+    db.rossi = dati.rossi || [];
+    db.bollicine = dati.bollicine || [];
+    setSyncStatus('ok', 'Sincronizzato con Google Sheet');
+    aggiornaOra();
+    renderCat(activeTab);
+  } catch(e) {
+    setSyncStatus('err', 'Errore di connessione — riprova');
+    renderError(activeTab);
+  }
+}
+
+async function aggiornaSheet(categoria, id, nuovaQty) {
+  setSyncStatus('', 'Salvataggio...');
+  try {
+    const url = URL + '?action=aggiorna&categoria=' + categoria + '&id=' + id + '&quantita=' + nuovaQty;
+    const res = await fetch(url);
+    const r = await res.json();
+    if (r.errore) throw new Error(r.errore);
+    setSyncStatus('ok', 'Salvato su Google Sheet');
+    aggiornaOra();
+  } catch(e) {
+    setSyncStatus('err', 'Errore salvataggio — riprova');
+  }
+}
+
+async function aggiungiSheet(categoria, nome, qty, soglia) {
+  await aggiungiSheetCompleto(categoria, nome, '', '', '', 0, 0, qty, soglia);
+}
+
+async function aggiungiSheetCompleto(categoria, nome, produttore, vitigni, regione, acquisto, vendita, qty, soglia) {
+  setSyncStatus('', 'Salvataggio...');
+  try {
+    const url = URL + '?action=aggiungi'
+      + '&categoria=' + encodeURIComponent(categoria)
+      + '&nome=' + encodeURIComponent(nome)
+      + '&produttore=' + encodeURIComponent(produttore)
+      + '&vitigni=' + encodeURIComponent(vitigni)
+      + '&regione=' + encodeURIComponent(regione)
+      + '&acquisto=' + acquisto
+      + '&vendita=' + vendita
+      + '&quantita=' + qty
+      + '&soglia=' + soglia;
+    const res = await fetch(url);
+    const r = await res.json();
+    if (r.errore) throw new Error(r.errore);
+    setSyncStatus('ok', 'Aggiunto e salvato su Google Sheet');
+    aggiornaOra();
+  } catch(e) {
+    setSyncStatus('err', 'Errore salvataggio — riprova');
+  }
+}
+
+function aggiornaOra() {
+  const now = new Date();
+  document.getElementById('last-sync').textContent =
+    now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+function renderLoading(cat) {
+  if (cat === 'log') return;
+  document.getElementById('pane-' + cat).innerHTML =
+    '<div class="loading"><span class="spinner"></span>Caricamento...</div>';
+}
+
+function renderError(cat) {
+  if (cat === 'log') return;
+  document.getElementById('pane-' + cat).innerHTML =
+    '<div class="empty">Impossibile connettersi al Google Sheet.<br>Controlla la connessione e ricarica la pagina.</div>';
+}
+
+function setTab(t) {
+  activeTab = t;
+  ['bianchi','rossi','bollicine','log'].forEach((c, i) => {
+    document.getElementById('pane-' + c).style.display = c === t ? 'block' : 'none';
+    document.querySelectorAll('.tab')[i].classList.toggle('active', c === t);
+  });
+  if (t === 'log') renderLog(); else renderCat(t);
+}
+
+function renderCat(cat) {
+  const pane = document.getElementById('pane-' + cat);
+  const alreadyBuilt = pane.querySelector('.stats');
+
+  if (!alreadyBuilt) {
+    pane.innerHTML = `
+      <div class="stats" id="stats-${cat}"></div>
+      <div class="toolbar">
+        <input class="search" id="search-${cat}" type="text" placeholder="Cerca vino o produttore…"
+          oninput="searchQ['${cat}']=this.value; renderList('${cat}')" />
+        <button class="filter-btn" id="filterbtn-${cat}" onclick="filterLow['${cat}']=!filterLow['${cat}']; renderList('${cat}'); this.classList.toggle('on')">
+          ⚠ Basse
+        </button>
+      </div>
+      <div class="list-label" id="list-label-${cat}"></div>
+      <div class="wine-list" id="wine-list-${cat}"></div>
+      <div class="add-section">
+        <button class="add-trigger" onclick="apriDrawer('${cat}')">
+          + Aggiungi nuovo vino
+        </button>
+      </div>
+    `;
+  }
+
+  renderStats(cat);
+  renderList(cat);
+}
+
+function renderStats(cat) {
+  const list = db[cat];
+  const total = list.reduce((s, w) => s + w.qty, 0);
+  const low = list.filter(w => w.qty > 0 && w.qty <= w.soglia).length;
+  const zero = list.filter(w => w.qty === 0).length;
+  const el = document.getElementById('stats-' + cat);
+  if (!el) return;
+  el.innerHTML = `
+    <div class="stat"><div class="stat-label">Etichette</div><div class="stat-value">${list.length}</div></div>
+    <div class="stat"><div class="stat-label">Bottiglie</div><div class="stat-value">${total}</div></div>
+    <div class="stat"><div class="stat-label">Scorte basse</div><div class="stat-value ${low > 0 ? 'warn' : ''}">${low}</div></div>
+    <div class="stat"><div class="stat-label">Esauriti</div><div class="stat-value">${zero}</div></div>
+  `;
+}
+
+function renderList(cat) {
+  const list = db[cat];
+  const q = searchQ[cat].toLowerCase();
+  const showLow = filterLow[cat];
+
+  const visible = list.filter(w => {
+    if (showLow && !(w.qty > 0 && w.qty <= w.soglia)) return false;
+    if (q && !w.nome.toLowerCase().includes(q) && !w.produttore.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const labelEl = document.getElementById('list-label-' + cat);
+  if (labelEl) labelEl.textContent = visible.length + 'vin' + (visible.length !== 1 ? 'i' : 'o') + ' visualizzat' + (visible.length !== 1 ? 'i' : 'o');
+
+  const listEl = document.getElementById('wine-list-' + cat);
+  if (!listEl) return;
+  listEl.innerHTML = visible.length === 0
+    ? '<div class="empty">Nessun risultato.</div>'
+    : visible.map(w => `
+      <div class="wine-card ${w.qty === 0 ? 'zero' : ''} ${w.qty > 0 && w.qty <= w.soglia ? 'low' : ''}">
+        <div class="wine-info">
+          <div class="wine-name">${w.nome}${w.qty > 0 && w.qty <= w.soglia ? '<span class="low-badge">Scorte basse</span>' : ''}</div>
+          <div class="wine-sub">${[w.produttore, w.vitigno, w.regione].filter(Boolean).join(' · ')}</div>
+        </div>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="cambiaQty('${cat}',${w.id},-1)">−</button>
+          <div class="qty-num ${w.qty > 0 && w.qty <= w.soglia ? 'low' : ''}">${w.qty}</div>
+          <button class="qty-btn" onclick="cambiaQty('${cat}',${w.id},+1)">+</button>
+        </div>
+      </div>`).join('');
+}
+
+function cambiaQty(cat, id, delta) {
+  const w = db[cat].find(x => x.id === id);
+  if (!w || w.qty + delta < 0) return;
+  w.qty += delta;
+  const now = new Date();
+  const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  logs.unshift({ t, cat, nome: w.nome, delta, qty: w.qty });
+  renderStats(cat);
+  renderList(cat);
+  aggiornaSheet(cat, id, w.qty);
+}
+
+function apriDrawer(cat) {
+  document.getElementById('d-tipo').value = cat;
+  document.getElementById('d-nome').value = '';
+  document.getElementById('d-produttore').value = '';
+  document.getElementById('d-vitigni').value = '';
+  document.getElementById('d-regione').value = '';
+  document.getElementById('d-acquisto').value = '';
+  document.getElementById('d-vendita').value = '';
+  document.getElementById('d-qty').value = '';
+  document.getElementById('d-soglia').value = '';
+  document.getElementById('err-nome').style.display = 'none';
+  document.getElementById('err-tipo').style.display = 'none';
+  document.getElementById('drawer-overlay').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+  setTimeout(() => document.getElementById('d-nome').focus(), 300);
+}
+
+function chiudiDrawer() {
+  document.getElementById('drawer-overlay').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
+}
+
+function salvaDrawer() {
+  const nome = document.getElementById('d-nome').value.trim();
+  const cat = document.getElementById('d-tipo').value;
+  const produttore = document.getElementById('d-produttore').value.trim();
+  const vitigni = document.getElementById('d-vitigni').value.trim();
+  const regione = document.getElementById('d-regione').value.trim();
+  const acquisto = parseFloat(document.getElementById('d-acquisto').value) || 0;
+  const vendita = parseFloat(document.getElementById('d-vendita').value) || 0;
+  const qty = parseInt(document.getElementById('d-qty').value) || 0;
+  const soglia = parseInt(document.getElementById('d-soglia').value) || 3;
+
+  let valid = true;
+  if (!nome) { document.getElementById('err-nome').style.display = 'block'; valid = false; }
+  else { document.getElementById('err-nome').style.display = 'none'; }
+  if (!cat) { document.getElementById('err-tipo').style.display = 'block'; valid = false; }
+  else { document.getElementById('err-tipo').style.display = 'none'; }
+  if (!valid) return;
+
+  const now = new Date();
+  const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+
+  const ex = db[cat].find(w => w.nome.toLowerCase() === nome.toLowerCase());
+  if (ex) {
+    ex.qty += qty;
+    logs.unshift({ t, cat, nome: ex.nome, delta: qty, qty: ex.qty });
+    if (activeTab === cat) { renderStats(cat); renderList(cat); }
+    aggiornaSheet(cat, ex.id, ex.qty);
+  } else {
+    db[cat].push({ id: Date.now(), nome, produttore, vitigno: vitigni, regione, qty, soglia });
+    logs.unshift({ t, cat, nome, delta: qty, qty });
+    if (activeTab === cat) { renderStats(cat); renderList(cat); }
+    else {
+      const targetPane = document.getElementById('pane-' + cat);
+      targetPane.innerHTML = '';
+    }
+    aggiungiSheetCompleto(cat, nome, produttore, vitigni, regione, acquisto, vendita, qty, soglia);
+  }
+  chiudiDrawer();
+}
+
+function renderLog() {
+  const el = document.getElementById('log-list');
+  if (!logs.length) {
+    el.innerHTML = '<div class="empty">Nessuna operazione ancora.</div>';
+    return;
+  }
+  const catLabel = { bianchi: 'Bianco', rossi: 'Rosso', bollicine: 'Bollicine' };
+  el.innerHTML = logs.slice(0, 80).map(l => `
+    <div class="log-row">
+      <span class="log-time">${l.t}</span>
+      <span class="log-cat">${catLabel[l.cat]}</span>
+      <span class="log-name">${l.nome}</span>
+      <span class="log-delta ${l.delta > 0 ? 'pos' : 'neg'}">${l.delta > 0 ? '+' : ''}${l.delta}</span>
+      <span class="log-tot">tot. ${l.qty}</span>
+    </div>
+  `).join('');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+fetchData();
+</script>
+</body>
+</html>
