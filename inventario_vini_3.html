@@ -157,6 +157,19 @@
   .wine-info { flex: 1; min-width: 0; }
   .wine-name { font-size: 14px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .wine-sub { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wine-adj { font-size: 11px; color: var(--hint); margin-top: 3px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .adj-loading { font-size: 10px; color: var(--hint); margin-top: 3px; }
+  .gen-btn {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    width: 100%; padding: 10px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-size: 13px; color: var(--muted);
+    cursor: pointer; margin-bottom: 1rem;
+  }
+  .gen-btn:hover { border-color: var(--text); color: var(--text); }
+  .gen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .low-badge {
     font-size: 10px;
@@ -462,6 +475,8 @@ async function fetchData() {
     setSyncStatus('ok', 'Sincronizzato con Google Sheet');
     aggiornaOra();
     renderCat(activeTab);
+    // Genera descrizioni AI per i vini che non le hanno ancora
+    generaTutti();
   } catch(e) {
     setSyncStatus('err', 'Errore di connessione — riprova');
     renderError(activeTab);
@@ -504,6 +519,7 @@ async function aggiungiSheetCompleto(categoria, nome, produttore, vitigni, regio
     if (r.errore) throw new Error(r.errore);
     setSyncStatus('ok', 'Aggiunto e salvato su Google Sheet');
     aggiornaOra();
+    return r;
   } catch(e) {
     setSyncStatus('err', 'Errore salvataggio — riprova');
   }
@@ -607,6 +623,7 @@ function renderList(cat) {
             ${w.vendita ? '<span class="price-tag">' + w.vendita + '</span>' : ''}
           </div>
           <div class="wine-sub">${[w.produttore, w.vitigno, w.regione].filter(Boolean).join(' · ')}</div>
+          ${w.adj ? '<div class="wine-adj">✦ ' + w.adj + '</div>' : w.adjLoading ? '<div class="adj-loading">Generando…</div>' : ''}
         </div>
         <div class="qty-ctrl">
           <button class="qty-btn" onclick="cambiaQty('${cat}',${w.id},-1)">−</button>
@@ -678,14 +695,17 @@ function salvaDrawer() {
     if (activeTab === cat) { renderStats(cat); renderList(cat); }
     aggiornaSheet(cat, ex.id, ex.qty);
   } else {
-    db[cat].push({ id: Date.now(), nome, produttore, vitigno: vitigni, regione, qty, soglia });
+    const nuovoId = Date.now();
+    db[cat].push({ id: nuovoId, nome, produttore, vitigno: vitigni, regione, qty, soglia, adj: '' });
     logs.unshift({ t, cat, nome, delta: qty, qty });
     if (activeTab === cat) { renderStats(cat); renderList(cat); }
     else {
       const targetPane = document.getElementById('pane-' + cat);
       targetPane.innerHTML = '';
     }
-    aggiungiSheetCompleto(cat, nome, produttore, vitigni, regione, acquisto, vendita, qty, soglia);
+    // Genera adj automaticamente e salva nel foglio insieme al vino
+    aggiungiSheetCompleto(cat, nome, produttore, vitigni, regione, acquisto, vendita, qty, soglia)
+      .then(() => generaAdjNuovo(cat, nuovoId));
   }
   chiudiDrawer();
 }
@@ -706,6 +726,81 @@ function renderLog() {
       <span class="log-tot">tot. ${l.qty}</span>
     </div>
   `).join('');
+}
+
+// ── AI Descrizioni ───────────────────────────────────────────────────────────
+
+async function generaAdj(vino) {
+  const prompt = `Sei un sommelier esperto. Per il vino "${vino.nome}" prodotto da "${vino.produttore || 'produttore sconosciuto'}", vitigno "${vino.vitigno || 'non specificato'}", rispondi SOLO con 2 aggettivi in italiano che descrivono le note aromatiche o la struttura, separati da " · ". Esempio: "Sapido · Minerale". Nient'altro, nessuna punteggiatura finale.`;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 20,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    return data.content?.[0]?.text?.trim() || '';
+  } catch(e) {
+    return '';
+  }
+}
+
+// Genera descrizioni per tutti i vini senza adj, in batch da 5
+async function generaTutti() {
+  const categorie = ['bianchi', 'rossi', 'bollicine'];
+  const tuttiSenzaAdj = [];
+  categorie.forEach(cat => {
+    db[cat].forEach(v => {
+      if (!v.adj) tuttiSenzaAdj.push({ ...v, _cat: cat });
+    });
+  });
+
+  if (tuttiSenzaAdj.length === 0) return;
+
+  setSyncStatus('', `Generando descrizioni per ${tuttiSenzaAdj.length} vini…`);
+
+  for (let i = 0; i < tuttiSenzaAdj.length; i += 5) {
+    const gruppo = tuttiSenzaAdj.slice(i, i + 5);
+    await Promise.all(gruppo.map(async v => {
+      const adj = await generaAdj(v);
+      if (adj) {
+        // Aggiorna in db
+        const vino = db[v._cat].find(w => w.id === v.id);
+        if (vino) vino.adj = adj;
+        // Salva nel foglio
+        try {
+          await fetch(URL + '?action=salvaAdj&categoria=' + v._cat + '&id=' + v.id + '&adj=' + encodeURIComponent(adj));
+        } catch(e) {}
+      }
+    }));
+    // Aggiorna UI ogni batch
+    if (activeTab !== 'log') renderList(activeTab);
+    setSyncStatus('', `Generando descrizioni… ${Math.min(i + 5, tuttiSenzaAdj.length)}/${tuttiSenzaAdj.length}`);
+  }
+
+  setSyncStatus('ok', 'Descrizioni generate e salvate');
+  aggiornaOra();
+}
+
+// Genera adj per un singolo vino appena aggiunto
+async function generaAdjNuovo(cat, id) {
+  const vino = db[cat].find(v => v.id === id);
+  if (!vino || vino.adj) return;
+  vino.adjLoading = true;
+  renderList(cat);
+  const adj = await generaAdj(vino);
+  vino.adj = adj;
+  vino.adjLoading = false;
+  if (adj) {
+    try {
+      await fetch(URL + '?action=salvaAdj&categoria=' + cat + '&id=' + vino.id + '&adj=' + encodeURIComponent(adj));
+    } catch(e) {}
+  }
+  renderList(cat);
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
