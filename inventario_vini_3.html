@@ -351,6 +351,75 @@
   }
   .add-trigger:hover { border-color: var(--text); color: var(--text); }
   .err-msg { font-size: 12px; color: var(--red); margin-top: 4px; display: none; }
+
+  /* Bolla */
+  .bolla-wrap { padding: .25rem 0 2rem; }
+  .bolla-header { margin-bottom: 1.25rem; }
+  .bolla-title { font-size: 16px; font-weight: 600; color: var(--text); }
+  .bolla-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 2.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    background: var(--surface);
+    transition: border-color 0.15s;
+  }
+  .upload-zone:hover { border-color: var(--text); }
+  .upload-icon { font-size: 36px; margin-bottom: 10px; }
+  .upload-label { font-size: 14px; font-weight: 500; color: var(--text); }
+  .upload-hint { font-size: 12px; color: var(--hint); margin-top: 4px; }
+  .bolla-status {
+    margin-top: 1rem;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    background: var(--amber-bg);
+    color: var(--amber);
+    border: 1px solid #E8D49A;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .bolla-status.ok { background: var(--green-bg); color: var(--green); border-color: #A5D6A7; }
+  .bolla-status.err { background: var(--red-bg); color: var(--red); border-color: #FFCDD2; }
+  .bolla-section-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 1.25rem 0 .75rem; }
+  .risultato-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .risultato-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .risultato-nome { flex: 1; font-size: 14px; font-weight: 500; color: var(--text); }
+  .cat-select {
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+  }
+  .risultato-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; }
+  .risultato-field { display: flex; flex-direction: column; gap: 3px; }
+  .risultato-field label { font-size: 10px; color: var(--hint); text-transform: uppercase; letter-spacing: 0.05em; }
+  .risultato-field input {
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg);
+    width: 100%;
+  }
+  .risultato-field input:focus { border-color: var(--text); outline: none; background: var(--surface); }
+  .btn-rimuovi {
+    background: none; border: none; color: var(--hint);
+    cursor: pointer; font-size: 16px; padding: 0 4px;
+    flex-shrink: 0;
+  }
+  .btn-rimuovi:hover { color: var(--red); }
+  .bolla-footer { display: flex; gap: 10px; margin-top: 1.25rem; }
 </style>
 </head>
 <body>
@@ -370,6 +439,7 @@
   <div class="tab" onclick="setTab('rossi')">Rossi</div>
   <div class="tab" onclick="setTab('bollicine')">Bollicine</div>
   <div class="tab" onclick="setTab('log')">Registro</div>
+  <div class="tab" onclick="setTab('bolla')">📄 Bolla</div>
 </div>
 
 <!-- Drawer nuovo vino -->
@@ -440,6 +510,37 @@
     <div class="list-label" style="margin-top:.25rem">Operazioni recenti</div>
     <div class="log-list" id="log-list">
       <div class="empty">Nessuna operazione ancora.</div>
+    </div>
+  </div>
+
+  <div id="pane-bolla" style="display:none">
+    <div class="bolla-wrap">
+      <div class="bolla-header">
+        <div class="bolla-title">Scansiona bolla di consegna</div>
+        <div class="bolla-sub">Fotografa o carica la bolla — l'AI estrae automaticamente i vini</div>
+      </div>
+
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+        <div class="upload-icon">📄</div>
+        <div class="upload-label">Tocca per fotografare o caricare</div>
+        <div class="upload-hint">JPG, PNG o PDF</div>
+        <input type="file" id="file-input" accept="image/*,application/pdf" capture="environment" style="display:none" onchange="gestisciFile(this)" />
+      </div>
+
+      <div id="preview-wrap" style="display:none">
+        <img id="preview-img" style="width:100%;border-radius:var(--radius);margin-top:1rem;border:1px solid var(--border)" />
+      </div>
+
+      <div id="bolla-status" style="display:none" class="bolla-status"></div>
+
+      <div id="risultati-wrap" style="display:none">
+        <div class="bolla-section-title">Vini rilevati — controlla e conferma</div>
+        <div id="risultati-list"></div>
+        <div class="bolla-footer">
+          <button class="btn-cancel" onclick="resetBolla()">Annulla</button>
+          <button class="btn-save" id="btn-conferma" onclick="confermaBolla()">Aggiorna magazzino</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -547,11 +648,13 @@ function renderError(cat) {
 
 function setTab(t) {
   activeTab = t;
-  ['bianchi','rossi','bollicine','log'].forEach((c, i) => {
+  ['bianchi','rossi','bollicine','log','bolla'].forEach((c, i) => {
     document.getElementById('pane-' + c).style.display = c === t ? 'block' : 'none';
     document.querySelectorAll('.tab')[i].classList.toggle('active', c === t);
   });
-  if (t === 'log') renderLog(); else renderCat(t);
+  if (t === 'log') renderLog();
+  else if (t === 'bolla') return;
+  else renderCat(t);
 }
 
 function renderCat(cat) {
@@ -801,6 +904,169 @@ async function generaAdjNuovo(cat, id) {
     } catch(e) {}
   }
   renderList(cat);
+}
+
+// ── Bolla di consegna ────────────────────────────────────────────────────────
+
+let bollaRisultati = [];
+
+function gestisciFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('preview-img').src = e.target.result;
+      document.getElementById('preview-wrap').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  analizzaBolla(file);
+}
+
+async function analizzaBolla(file) {
+  const status = document.getElementById('bolla-status');
+  status.style.display = 'flex';
+  status.className = 'bolla-status';
+  status.innerHTML = '<span class="spinner"></span> Analisi in corso…';
+  document.getElementById('risultati-wrap').style.display = 'none';
+
+  try {
+    // Converti file in base64
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+
+    const mimeType = file.type || 'image/jpeg';
+
+    // Invia ad Apps Script che chiama Anthropic in modo sicuro
+    const urlParams = new URLSearchParams({
+      action: 'analizzaBolla',
+      imageBase64: base64,
+      mimeType: mimeType
+    });
+
+    const res = await fetch(URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: urlParams.toString()
+    });
+
+    const data = await res.json();
+    if (data.errore) throw new Error(data.errore);
+
+    bollaRisultati = Array.isArray(data) ? data : [];
+    if (!bollaRisultati.length) throw new Error('Nessun vino rilevato nel documento');
+
+    status.className = 'bolla-status ok';
+    status.innerHTML = '✓ Trovati ' + bollaRisultati.length + ' vini — controlla e conferma';
+    mostraRisultati();
+
+  } catch(e) {
+    status.className = 'bolla-status err';
+    status.innerHTML = '✗ Errore: ' + e.message;
+  }
+}
+
+function mostraRisultati() {
+  const wrap = document.getElementById('risultati-wrap');
+  const list = document.getElementById('risultati-list');
+  wrap.style.display = 'block';
+
+  list.innerHTML = bollaRisultati.map((v, i) => `
+    <div class="risultato-card">
+      <div class="risultato-top">
+        <div class="risultato-nome">${v.nome}</div>
+        <select class="cat-select" id="cat-${i}">
+          <option value="bianchi" ${v.categoria==='bianchi'?'selected':''}>Bianco</option>
+          <option value="rossi" ${v.categoria==='rossi'?'selected':''}>Rosso</option>
+          <option value="bollicine" ${v.categoria==='bollicine'?'selected':''}>Bollicine</option>
+        </select>
+        <button class="btn-rimuovi" onclick="rimuoviRisultato(${i})">✕</button>
+      </div>
+      <div class="risultato-fields">
+        <div class="risultato-field">
+          <label>Nome</label>
+          <input type="text" id="nome-${i}" value="${v.nome}" />
+        </div>
+        <div class="risultato-field">
+          <label>Produttore</label>
+          <input type="text" id="prod-${i}" value="${v.produttore || ''}" />
+        </div>
+        <div class="risultato-field">
+          <label>Bottiglie</label>
+          <input type="number" id="qty-${i}" value="${v.quantita}" min="1" />
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function rimuoviRisultato(i) {
+  document.querySelector(`#risultati-list .risultato-card:nth-child(${i+1})`).remove();
+  bollaRisultati[i] = null;
+}
+
+async function confermaBolla() {
+  const btn = document.getElementById('btn-conferma');
+  btn.disabled = true;
+  btn.textContent = 'Aggiornamento…';
+
+  const status = document.getElementById('bolla-status');
+  let aggiornati = 0;
+
+  for (let i = 0; i < bollaRisultati.length; i++) {
+    if (!bollaRisultati[i]) continue;
+
+    const nome = document.getElementById('nome-' + i)?.value.trim();
+    const produttore = document.getElementById('prod-' + i)?.value.trim() || '';
+    const qty = parseInt(document.getElementById('qty-' + i)?.value) || 0;
+    const cat = document.getElementById('cat-' + i)?.value;
+
+    if (!nome || qty < 1) continue;
+
+    // Cerca vino esistente
+    const esistente = db[cat]?.find(w => w.nome.toLowerCase() === nome.toLowerCase());
+    const now = new Date();
+    const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+
+    if (esistente) {
+      esistente.qty += qty;
+      logs.unshift({ t, cat, nome: esistente.nome, delta: qty, qty: esistente.qty });
+      await aggiornaSheet(cat, esistente.id, esistente.qty);
+    } else {
+      db[cat].push({ id: Date.now() + i, nome, produttore, vitigno: '', regione: '', qty, soglia: 3, adj: '' });
+      logs.unshift({ t, cat, nome, delta: qty, qty });
+      await aggiungiSheetCompleto(cat, nome, produttore, '', '', 0, bollaRisultati[i].prezzo || 0, qty, 3);
+    }
+    aggiornati++;
+  }
+
+  // Aggiorna UI
+  ['bianchi','rossi','bollicine'].forEach(cat => {
+    const pane = document.getElementById('pane-' + cat);
+    if (pane) pane.innerHTML = '';
+  });
+
+  status.className = 'bolla-status ok';
+  status.innerHTML = '✓ ' + aggiornati + ' vini aggiornati in magazzino';
+  btn.textContent = 'Aggiorna magazzino';
+  btn.disabled = false;
+
+  setTimeout(resetBolla, 2000);
+}
+
+function resetBolla() {
+  document.getElementById('file-input').value = '';
+  document.getElementById('preview-wrap').style.display = 'none';
+  document.getElementById('bolla-status').style.display = 'none';
+  document.getElementById('risultati-wrap').style.display = 'none';
+  bollaRisultati = [];
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
