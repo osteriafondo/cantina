@@ -125,6 +125,40 @@
     outline: none;
   }
   .search:focus { border-color: var(--text); }
+
+  .global-search-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 1.25rem;
+  }
+  .global-search {
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto;
+    display: block;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+  }
+  .global-search:focus { border-color: var(--text); background: var(--surface); }
+  .global-cat-tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-left: 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+  }
+  .global-cat-tag.bianchi { background: #FBF6E3; color: #9C7A00; }
+  .global-cat-tag.rossi { background: #FBEAEA; color: #A32D2D; }
+  .global-cat-tag.bollicine { background: #EAF1FB; color: #2D5FA3; }
+
   .filter-btn {
     padding: 9px 12px;
     border: 1px solid var(--border);
@@ -155,7 +189,14 @@
   .wine-card.zero { opacity: 0.45; }
 
   .wine-info { flex: 1; min-width: 0; }
-  .wine-name { font-size: 14px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wine-name { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+  .wine-name-text {
+    font-size: 14px; font-weight: 500; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    min-width: 0; flex-shrink: 1;
+  }
+  .wine-name-text.name-sm { font-size: 12.5px; }
+  .wine-name-text.name-xs { font-size: 11px; }
   .wine-sub { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .wine-adj { font-size: 11px; color: var(--hint); margin-top: 3px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .adj-loading { font-size: 10px; color: var(--hint); margin-top: 3px; }
@@ -171,26 +212,17 @@
   .gen-btn:hover { border-color: var(--text); color: var(--text); }
   .gen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .low-badge {
-    font-size: 10px;
-    background: var(--red-bg);
-    color: var(--red);
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-left: 6px;
-    font-weight: 500;
-    vertical-align: middle;
-  }
   .price-tag {
     font-size: 12px;
     background: var(--amber-bg);
     color: var(--amber);
     padding: 2px 7px;
     border-radius: 4px;
-    margin-left: 6px;
     font-weight: 600;
     vertical-align: middle;
     letter-spacing: 0.01em;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .qty-ctrl { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
@@ -442,6 +474,12 @@
   <div class="tab" onclick="setTab('bolla')">📄 Bolla</div>
 </div>
 
+<div class="global-search-bar">
+  <input class="search global-search" id="global-search" type="text"
+    placeholder="🔍 Cerca un vino in tutta la cantina…"
+    oninput="onGlobalSearch(this.value)" />
+</div>
+
 <!-- Drawer nuovo vino -->
 <div class="drawer-overlay" id="drawer-overlay" onclick="chiudiDrawer()"></div>
 <div class="drawer" id="drawer">
@@ -503,6 +541,10 @@
 </div>
 
 <div class="main">
+  <div id="pane-global-search" style="display:none">
+    <div class="list-label" id="global-results-label"></div>
+    <div class="wine-list" id="global-results-list"></div>
+  </div>
   <div id="pane-bianchi"></div>
   <div id="pane-rossi" style="display:none"></div>
   <div id="pane-bollicine" style="display:none"></div>
@@ -648,6 +690,7 @@ function renderError(cat) {
 
 function setTab(t) {
   activeTab = t;
+  document.getElementById('pane-global-search').style.display = 'none';
   ['bianchi','rossi','bollicine','log','bolla'].forEach((c, i) => {
     document.getElementById('pane-' + c).style.display = c === t ? 'block' : 'none';
     document.querySelectorAll('.tab')[i].classList.toggle('active', c === t);
@@ -655,6 +698,67 @@ function setTab(t) {
   if (t === 'log') renderLog();
   else if (t === 'bolla') return;
   else renderCat(t);
+}
+
+function onGlobalSearch(val) {
+  const q = val.trim().toLowerCase();
+  const globalPane = document.getElementById('pane-global-search');
+
+  if (!q) {
+    globalPane.style.display = 'none';
+    document.getElementById('pane-' + activeTab).style.display = 'block';
+    return;
+  }
+
+  // Nascondi tutte le altre vista, mostra risultati globali
+  ['bianchi','rossi','bollicine','log','bolla'].forEach(c => {
+    document.getElementById('pane-' + c).style.display = 'none';
+  });
+  globalPane.style.display = 'block';
+
+  const catLabel = { bianchi: 'Bianco', rossi: 'Rosso', bollicine: 'Bollicine' };
+  let risultati = [];
+  ['bianchi','rossi','bollicine'].forEach(cat => {
+    db[cat].forEach(w => {
+      if (w.nome.toLowerCase().includes(q) || w.produttore.toLowerCase().includes(q) || (w.vitigno||'').toLowerCase().includes(q)) {
+        risultati.push({ ...w, _cat: cat });
+      }
+    });
+  });
+
+  const labelEl = document.getElementById('global-results-label');
+  labelEl.textContent = risultati.length + ' risultat' + (risultati.length === 1 ? 'o' : 'i') + ' in tutta la cantina';
+
+  const listEl = document.getElementById('global-results-list');
+  listEl.innerHTML = risultati.length === 0
+    ? '<div class="empty">Nessun vino trovato.</div>'
+    : risultati.map(w => {
+        const lung = w.nome.length;
+        const fontClass = lung > 34 ? 'name-xs' : lung > 26 ? 'name-sm' : '';
+        return `
+      <div class="wine-card ${w.qty === 0 ? 'zero' : ''} ${w.qty > 0 && w.qty <= SOGLIA_FISSA ? 'low' : ''}">
+        <div class="wine-info">
+          <div class="wine-name">
+            <span class="wine-name-text ${fontClass}">${w.nome}</span>
+            <span class="global-cat-tag ${w._cat}">${catLabel[w._cat]}</span>
+            ${w.vendita ? '<span class="price-tag">' + w.vendita + '</span>' : ''}
+          </div>
+          <div class="wine-sub">${[w.produttore, w.vitigno, w.regione].filter(Boolean).join(' · ')}</div>
+          ${w.adj ? '<div class="wine-adj">✦ ' + w.adj + '</div>' : ''}
+        </div>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="cambiaQtyGlobale('${w._cat}',${w.id},-1)">−</button>
+          <div class="qty-num ${w.qty > 0 && w.qty <= SOGLIA_FISSA ? 'low' : ''}">${w.qty}</div>
+          <button class="qty-btn" onclick="cambiaQtyGlobale('${w._cat}',${w.id},+1)">+</button>
+        </div>
+      </div>`;
+      }).join('');
+}
+
+function cambiaQtyGlobale(cat, id, delta) {
+  cambiaQty(cat, id, delta);
+  // Aggiorna anche la vista globale dopo il cambio
+  onGlobalSearch(document.getElementById('global-search').value);
 }
 
 function renderCat(cat) {
@@ -665,10 +769,8 @@ function renderCat(cat) {
     pane.innerHTML = `
       <div class="stats" id="stats-${cat}"></div>
       <div class="toolbar">
-        <input class="search" id="search-${cat}" type="text" placeholder="Cerca vino o produttore…"
-          oninput="searchQ['${cat}']=this.value; renderList('${cat}')" />
         <button class="filter-btn" id="filterbtn-${cat}" onclick="filterLow['${cat}']=!filterLow['${cat}']; renderList('${cat}'); this.classList.toggle('on')">
-          ⚠ Basse
+          ⚠ Solo scorte basse
         </button>
       </div>
       <div class="list-label" id="list-label-${cat}"></div>
@@ -685,10 +787,12 @@ function renderCat(cat) {
   renderList(cat);
 }
 
+const SOGLIA_FISSA = 3;
+
 function renderStats(cat) {
   const list = db[cat];
   const total = list.reduce((s, w) => s + w.qty, 0);
-  const low = list.filter(w => w.qty > 0 && w.qty <= w.soglia).length;
+  const low = list.filter(w => w.qty > 0 && w.qty <= SOGLIA_FISSA).length;
   const zero = list.filter(w => w.qty === 0).length;
   const el = document.getElementById('stats-' + cat);
   if (!el) return;
@@ -702,12 +806,10 @@ function renderStats(cat) {
 
 function renderList(cat) {
   const list = db[cat];
-  const q = searchQ[cat].toLowerCase();
   const showLow = filterLow[cat];
 
   const visible = list.filter(w => {
-    if (showLow && !(w.qty > 0 && w.qty <= w.soglia)) return false;
-    if (q && !w.nome.toLowerCase().includes(q) && !w.produttore.toLowerCase().includes(q)) return false;
+    if (showLow && !(w.qty > 0 && w.qty <= SOGLIA_FISSA)) return false;
     return true;
   });
 
@@ -718,11 +820,14 @@ function renderList(cat) {
   if (!listEl) return;
   listEl.innerHTML = visible.length === 0
     ? '<div class="empty">Nessun risultato.</div>'
-    : visible.map(w => `
-      <div class="wine-card ${w.qty === 0 ? 'zero' : ''} ${w.qty > 0 && w.qty <= w.soglia ? 'low' : ''}">
+    : visible.map(w => {
+        const lung = w.nome.length;
+        const fontClass = lung > 34 ? 'name-xs' : lung > 26 ? 'name-sm' : '';
+        return `
+      <div class="wine-card ${w.qty === 0 ? 'zero' : ''} ${w.qty > 0 && w.qty <= SOGLIA_FISSA ? 'low' : ''}">
         <div class="wine-info">
           <div class="wine-name">
-            ${w.nome}${w.qty > 0 && w.qty <= w.soglia ? '<span class="low-badge">Scorte basse</span>' : ''}
+            <span class="wine-name-text ${fontClass}">${w.nome}</span>
             ${w.vendita ? '<span class="price-tag">' + w.vendita + '</span>' : ''}
           </div>
           <div class="wine-sub">${[w.produttore, w.vitigno, w.regione].filter(Boolean).join(' · ')}</div>
@@ -730,10 +835,11 @@ function renderList(cat) {
         </div>
         <div class="qty-ctrl">
           <button class="qty-btn" onclick="cambiaQty('${cat}',${w.id},-1)">−</button>
-          <div class="qty-num ${w.qty > 0 && w.qty <= w.soglia ? 'low' : ''}">${w.qty}</div>
+          <div class="qty-num ${w.qty > 0 && w.qty <= SOGLIA_FISSA ? 'low' : ''}">${w.qty}</div>
           <button class="qty-btn" onclick="cambiaQty('${cat}',${w.id},+1)">+</button>
         </div>
-      </div>`).join('');
+      </div>`;
+      }).join('');
 }
 
 function cambiaQty(cat, id, delta) {
