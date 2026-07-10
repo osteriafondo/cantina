@@ -940,19 +940,24 @@ function renderLog() {
 // ── AI Descrizioni ───────────────────────────────────────────────────────────
 
 async function generaAdj(vino) {
-  const prompt = `Sei un sommelier esperto. Per il vino "${vino.nome}" prodotto da "${vino.produttore || 'produttore sconosciuto'}", vitigno "${vino.vitigno || 'non specificato'}", rispondi SOLO con 2 aggettivi in italiano che descrivono le note aromatiche o la struttura, separati da " · ". Esempio: "Sapido · Minerale". Nient'altro, nessuna punteggiatura finale.`;
+  // Passa dal proxy Google Apps Script (chiave API sicura lato server),
+  // come già fa l'analisi delle bolle. La chiamata diretta al browser
+  // falliva sempre (mancavano autenticazione e CORS).
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const params = new URLSearchParams({
+      action: 'generaAdj',
+      nome: vino.nome || '',
+      produttore: vino.produttore || '',
+      vitigno: vino.vitigno || ''
+    });
+    const res = await fetch(URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 20,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
     });
     const data = await res.json();
-    return data.content?.[0]?.text?.trim() || '';
+    if (data.errore) return '';
+    return (data.adj || '').trim();
   } catch(e) {
     return '';
   }
