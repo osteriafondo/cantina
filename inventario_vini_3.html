@@ -158,6 +158,8 @@
   .global-cat-tag.bianchi { background: #FBF6E3; color: #9C7A00; }
   .global-cat-tag.rossi { background: #FBEAEA; color: #A32D2D; }
   .global-cat-tag.bollicine { background: #EAF1FB; color: #2D5FA3; }
+  .global-cat-tag.macerati { background: #F1ECF8; color: #6B4A9C; }
+  .global-cat-tag.rosati { background: #FCEDF2; color: #B03A6A; }
 
   .filter-btn {
     padding: 9px 12px;
@@ -470,6 +472,8 @@
   <div class="tab active" onclick="setTab('bianchi')">Bianchi</div>
   <div class="tab" onclick="setTab('rossi')">Rossi</div>
   <div class="tab" onclick="setTab('bollicine')">Bollicine</div>
+  <div class="tab" onclick="setTab('macerati')">Macerati</div>
+  <div class="tab" onclick="setTab('rosati')">Rosati</div>
   <div class="tab" onclick="setTab('log')">Registro</div>
   <div class="tab" onclick="setTab('bolla')">📄 Bolla</div>
 </div>
@@ -495,11 +499,21 @@
       <label>Tipologia <span class="req">*</span></label>
       <select id="d-tipo">
         <option value="">— Seleziona —</option>
-        <option value="bianchi">Bianco</option>
-        <option value="rossi">Rosso</option>
         <option value="bollicine">Bollicine</option>
+        <option value="bianchi">Bianco</option>
+        <option value="macerati">Macerato</option>
+        <option value="rosati">Rosato</option>
+        <option value="rossi">Rosso</option>
       </select>
       <div class="err-msg" id="err-tipo">Seleziona una tipologia</div>
+    </div>
+    <div class="field">
+      <label>Area (Italia / Estero — per Bollicine, Bianchi, Rossi)</label>
+      <select id="d-area">
+        <option value="">— Nessuna —</option>
+        <option value="Italia">Italia</option>
+        <option value="Estero">Estero</option>
+      </select>
     </div>
     <div class="field">
       <label>Produttore / Cantina</label>
@@ -548,6 +562,8 @@
   <div id="pane-bianchi"></div>
   <div id="pane-rossi" style="display:none"></div>
   <div id="pane-bollicine" style="display:none"></div>
+  <div id="pane-macerati" style="display:none"></div>
+  <div id="pane-rosati" style="display:none"></div>
   <div id="pane-log" style="display:none">
     <div class="list-label" style="margin-top:.25rem">Operazioni recenti</div>
     <div class="log-list" id="log-list">
@@ -590,11 +606,11 @@
 <script>
 const URL = 'https://script.google.com/macros/s/AKfycbybqP4MzxDZmoWLvccj4bCXEMMssdqnqDeBKGpTo6HRjE8zBXlHNCTebwHggjWvCuec/exec';
 
-let db = { bianchi: [], rossi: [], bollicine: [] };
+let db = { bianchi: [], rossi: [], bollicine: [], macerati: [], rosati: [] };
 let logs = [];
 let activeTab = 'bianchi';
-let filterLow = { bianchi: false, rossi: false, bollicine: false };
-let searchQ = { bianchi: '', rossi: '', bollicine: '' };
+let filterLow = { bianchi: false, rossi: false, bollicine: false, macerati: false, rosati: false };
+let searchQ = { bianchi: '', rossi: '', bollicine: '', macerati: '', rosati: '' };
 
 // ── Sync ──────────────────────────────────────────────────────────────────────
 
@@ -615,6 +631,8 @@ async function fetchData() {
     db.bianchi = dati.bianchi || [];
     db.rossi = dati.rossi || [];
     db.bollicine = dati.bollicine || [];
+    db.macerati = dati.macerati || [];
+    db.rosati = dati.rosati || [];
     setSyncStatus('ok', 'Sincronizzato con Google Sheet');
     aggiornaOra();
     renderCat(activeTab);
@@ -644,7 +662,7 @@ async function aggiungiSheet(categoria, nome, qty, soglia) {
   await aggiungiSheetCompleto(categoria, nome, '', '', '', 0, 0, qty, soglia);
 }
 
-async function aggiungiSheetCompleto(categoria, nome, produttore, vitigni, regione, acquisto, vendita, qty, soglia) {
+async function aggiungiSheetCompleto(categoria, nome, produttore, vitigni, regione, acquisto, vendita, qty, soglia, area) {
   setSyncStatus('', 'Salvataggio...');
   try {
     const url = URL + '?action=aggiungi'
@@ -656,7 +674,8 @@ async function aggiungiSheetCompleto(categoria, nome, produttore, vitigni, regio
       + '&acquisto=' + acquisto
       + '&vendita=' + vendita
       + '&quantita=' + qty
-      + '&soglia=' + soglia;
+      + '&soglia=' + soglia
+      + '&area=' + encodeURIComponent(area || '');
     const res = await fetch(url);
     const r = await res.json();
     if (r.errore) throw new Error(r.errore);
@@ -691,7 +710,7 @@ function renderError(cat) {
 function setTab(t) {
   activeTab = t;
   document.getElementById('pane-global-search').style.display = 'none';
-  ['bianchi','rossi','bollicine','log','bolla'].forEach((c, i) => {
+  ['bianchi','rossi','bollicine','macerati','rosati','log','bolla'].forEach((c, i) => {
     document.getElementById('pane-' + c).style.display = c === t ? 'block' : 'none';
     document.querySelectorAll('.tab')[i].classList.toggle('active', c === t);
   });
@@ -711,14 +730,14 @@ function onGlobalSearch(val) {
   }
 
   // Nascondi tutte le altre vista, mostra risultati globali
-  ['bianchi','rossi','bollicine','log','bolla'].forEach(c => {
+  ['bianchi','rossi','bollicine','macerati','rosati','log','bolla'].forEach(c => {
     document.getElementById('pane-' + c).style.display = 'none';
   });
   globalPane.style.display = 'block';
 
-  const catLabel = { bianchi: 'Bianco', rossi: 'Rosso', bollicine: 'Bollicine' };
+  const catLabel = { bianchi: 'Bianco', rossi: 'Rosso', bollicine: 'Bollicine', macerati: 'Macerato', rosati: 'Rosato' };
   let risultati = [];
-  ['bianchi','rossi','bollicine'].forEach(cat => {
+  ['bianchi','rossi','bollicine','macerati','rosati'].forEach(cat => {
     db[cat].forEach(w => {
       if (w.nome.toLowerCase().includes(q) || w.produttore.toLowerCase().includes(q) || (w.vitigno||'').toLowerCase().includes(q)) {
         risultati.push({ ...w, _cat: cat });
@@ -743,7 +762,7 @@ function onGlobalSearch(val) {
             <span class="global-cat-tag ${w._cat}">${catLabel[w._cat]}</span>
             ${w.vendita ? '<span class="price-tag">' + w.vendita + '</span>' : ''}
           </div>
-          <div class="wine-sub">${[w.produttore, w.vitigno, w.regione].filter(Boolean).join(' · ')}</div>
+          <div class="wine-sub">${[w.produttore, w.vitigno, w.regione, w.area].filter(Boolean).join(' · ')}</div>
           ${w.adj ? '<div class="wine-adj">✦ ' + w.adj + '</div>' : ''}
         </div>
         <div class="qty-ctrl">
@@ -830,7 +849,7 @@ function renderList(cat) {
             <span class="wine-name-text ${fontClass}">${w.nome}</span>
             ${w.vendita ? '<span class="price-tag">' + w.vendita + '</span>' : ''}
           </div>
-          <div class="wine-sub">${[w.produttore, w.vitigno, w.regione].filter(Boolean).join(' · ')}</div>
+          <div class="wine-sub">${[w.produttore, w.vitigno, w.regione, w.area].filter(Boolean).join(' · ')}</div>
           ${w.adj ? '<div class="wine-adj">✦ ' + w.adj + '</div>' : w.adjLoading ? '<div class="adj-loading">Generando…</div>' : ''}
         </div>
         <div class="qty-ctrl">
@@ -856,6 +875,7 @@ function cambiaQty(cat, id, delta) {
 
 function apriDrawer(cat) {
   document.getElementById('d-tipo').value = cat;
+  document.getElementById('d-area').value = '';
   document.getElementById('d-nome').value = '';
   document.getElementById('d-produttore').value = '';
   document.getElementById('d-vitigni').value = '';
@@ -886,6 +906,7 @@ function salvaDrawer() {
   const vendita = parseFloat(document.getElementById('d-vendita').value) || 0;
   const qty = parseInt(document.getElementById('d-qty').value) || 0;
   const soglia = parseInt(document.getElementById('d-soglia').value) || 3;
+  const area = document.getElementById('d-area').value;
 
   let valid = true;
   if (!nome) { document.getElementById('err-nome').style.display = 'block'; valid = false; }
@@ -905,7 +926,7 @@ function salvaDrawer() {
     aggiornaSheet(cat, ex.id, ex.qty);
   } else {
     const nuovoId = Date.now();
-    db[cat].push({ id: nuovoId, nome, produttore, vitigno: vitigni, regione, qty, soglia, adj: '' });
+    db[cat].push({ id: nuovoId, nome, produttore, vitigno: vitigni, regione, area, qty, soglia, adj: '' });
     logs.unshift({ t, cat, nome, delta: qty, qty });
     if (activeTab === cat) { renderStats(cat); renderList(cat); }
     else {
@@ -913,7 +934,7 @@ function salvaDrawer() {
       targetPane.innerHTML = '';
     }
     // Genera adj automaticamente e salva nel foglio insieme al vino
-    aggiungiSheetCompleto(cat, nome, produttore, vitigni, regione, acquisto, vendita, qty, soglia)
+    aggiungiSheetCompleto(cat, nome, produttore, vitigni, regione, acquisto, vendita, qty, soglia, area)
       .then(() => generaAdjNuovo(cat, nuovoId));
   }
   chiudiDrawer();
@@ -925,7 +946,7 @@ function renderLog() {
     el.innerHTML = '<div class="empty">Nessuna operazione ancora.</div>';
     return;
   }
-  const catLabel = { bianchi: 'Bianco', rossi: 'Rosso', bollicine: 'Bollicine' };
+  const catLabel = { bianchi: 'Bianco', rossi: 'Rosso', bollicine: 'Bollicine', macerati: 'Macerato', rosati: 'Rosato' };
   el.innerHTML = logs.slice(0, 80).map(l => `
     <div class="log-row">
       <span class="log-time">${l.t}</span>
@@ -965,7 +986,7 @@ async function generaAdj(vino) {
 
 // Genera descrizioni per tutti i vini senza adj, in batch da 5
 async function generaTutti() {
-  const categorie = ['bianchi', 'rossi', 'bollicine'];
+  const categorie = ['bianchi', 'rossi', 'bollicine', 'macerati', 'rosati'];
   const tuttiSenzaAdj = [];
   categorie.forEach(cat => {
     db[cat].forEach(v => {
@@ -1094,9 +1115,11 @@ function mostraRisultati() {
       <div class="risultato-top">
         <div class="risultato-nome">${v.nome}</div>
         <select class="cat-select" id="cat-${i}">
-          <option value="bianchi" ${v.categoria==='bianchi'?'selected':''}>Bianco</option>
-          <option value="rossi" ${v.categoria==='rossi'?'selected':''}>Rosso</option>
           <option value="bollicine" ${v.categoria==='bollicine'?'selected':''}>Bollicine</option>
+          <option value="bianchi" ${v.categoria==='bianchi'?'selected':''}>Bianco</option>
+          <option value="macerati" ${v.categoria==='macerati'?'selected':''}>Macerato</option>
+          <option value="rosati" ${v.categoria==='rosati'?'selected':''}>Rosato</option>
+          <option value="rossi" ${v.categoria==='rossi'?'selected':''}>Rosso</option>
         </select>
         <button class="btn-rimuovi" onclick="rimuoviRisultato(${i})">✕</button>
       </div>
@@ -1159,7 +1182,7 @@ async function confermaBolla() {
   }
 
   // Aggiorna UI
-  ['bianchi','rossi','bollicine'].forEach(cat => {
+  ['bianchi','rossi','bollicine','macerati','rosati'].forEach(cat => {
     const pane = document.getElementById('pane-' + cat);
     if (pane) pane.innerHTML = '';
   });

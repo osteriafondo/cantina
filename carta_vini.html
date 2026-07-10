@@ -144,6 +144,19 @@
   .cat.open .panel { grid-template-rows: 1fr; }
   .panel-inner { overflow: hidden; padding-bottom: 0.5rem; }
 
+  .subcat {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--wine-soft);
+    margin: 1rem 0 0.1rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  .subcat:first-child { margin-top: 0.2rem; }
+
   /* ── Singolo vino ─────────────────────────────────────── */
   .wine { padding: 0.85rem 0; border-bottom: 1px solid var(--rule); }
   .wine:last-child { border-bottom: none; }
@@ -236,14 +249,17 @@
 // Stesso backend Google Apps Script del gestionale (sola lettura: action=leggi)
 const URL = 'https://script.google.com/macros/s/AKfycbybqP4MzxDZmoWLvccj4bCXEMMssdqnqDeBKGpTo6HRjE8zBXlHNCTebwHggjWvCuec/exec';
 
-// Ordine e nomi delle categorie in carta
+// Ordine e nomi delle categorie in carta.
+// sub: true => mostra le sottocategorie Italia / Estero (campo "area" del vino)
 const CATEGORIE = [
-  { key: 'bollicine', nome: 'Bollicine' },
-  { key: 'bianchi',   nome: 'Vini Bianchi' },
-  { key: 'rossi',     nome: 'Vini Rossi' }
+  { key: 'bollicine', nome: 'Bollicine', sub: true },
+  { key: 'bianchi',   nome: 'Bianchi',   sub: true },
+  { key: 'macerati',  nome: 'Macerati',  sub: false },
+  { key: 'rosati',    nome: 'Rosati',    sub: false },
+  { key: 'rossi',     nome: 'Rossi',     sub: true }
 ];
 
-let dati = { bianchi: [], rossi: [], bollicine: [] };
+let dati = { bianchi: [], rossi: [], bollicine: [], macerati: [], rosati: [] };
 let filtro = '';
 const aperte = new Set();   // categorie aperte dall'utente (tutte chiuse all'avvio)
 
@@ -266,7 +282,9 @@ async function carica() {
     dati = {
       bianchi: d.bianchi || [],
       rossi: d.rossi || [],
-      bollicine: d.bollicine || []
+      bollicine: d.bollicine || [],
+      macerati: d.macerati || [],
+      rosati: d.rosati || []
     };
     render();
   } catch (e) {
@@ -308,6 +326,25 @@ function rigaVino(v) {
   );
 }
 
+// Contenuto di una categoria: con sottocategorie Italia/Estero se cat.sub
+function contenutoCategoria(cat, vini) {
+  if (!cat.sub) return vini.map(rigaVino).join('');
+
+  const italia = [], estero = [], altri = [];
+  vini.forEach(v => {
+    const a = String(v.area || '').trim().toLowerCase();
+    if (a === 'italia') italia.push(v);
+    else if (a === 'estero') estero.push(v);
+    else altri.push(v);  // area non impostata: mostrato comunque (senza sottotitolo)
+  });
+
+  let out = '';
+  if (italia.length) out += '<div class="subcat">Italia</div>' + italia.map(rigaVino).join('');
+  if (estero.length) out += '<div class="subcat">Estero</div>' + estero.map(rigaVino).join('');
+  if (altri.length)  out += altri.map(rigaVino).join('');
+  return out;
+}
+
 function render() {
   el('loading').classList.add('hidden');
 
@@ -328,7 +365,7 @@ function render() {
           '<svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
         '</button>' +
         '<div class="panel"><div class="panel-inner">' +
-          vini.map(rigaVino).join('') +
+          contenutoCategoria(cat, vini) +
         '</div></div>' +
       '</section>';
   });
