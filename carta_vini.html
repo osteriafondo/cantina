@@ -10,6 +10,24 @@
 <meta name="apple-mobile-web-app-title" content="Carta Vini"/>
 <meta name="theme-color" content="#7B1C2E"/>
 <style>
+  /* Font principale: Recoleta (se carichi i file in /fonts) con fallback Fraunces */
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap');
+  @font-face {
+    font-family: 'Recoleta';
+    src: url('fonts/Recoleta-Regular.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Recoleta';
+    src: url('fonts/Recoleta-Medium.woff2') format('woff2');
+    font-weight: 500; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Recoleta';
+    src: url('fonts/Recoleta-SemiBold.woff2') format('woff2');
+    font-weight: 600; font-style: normal; font-display: swap;
+  }
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
@@ -21,7 +39,7 @@
     --wine: #7B1C2E;
     --wine-soft: #9A4A54;
     --rule: #E4DBCE;
-    --serif: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    --serif: 'Recoleta', 'Fraunces', Georgia, 'Times New Roman', serif;
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
@@ -89,24 +107,42 @@
   .search input::placeholder { color: var(--hint); }
   .search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--hint); }
 
-  /* ── Sezioni categoria ────────────────────────────────── */
-  .cat { margin-bottom: 2.4rem; }
+  /* ── Sezioni categoria (a tendina) ────────────────────── */
+  .cat { border-bottom: 1px solid var(--rule); }
   .cat-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 12px;
-    margin-bottom: 1rem;
+    width: 100%;
+    padding: 1.05rem 2px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    -webkit-tap-highlight-color: transparent;
   }
   .cat-head h2 {
     font-family: var(--serif);
-    font-weight: 400;
-    font-size: 21px;
+    font-weight: 500;
+    font-size: 23px;
     color: var(--wine);
-    letter-spacing: 0.02em;
-    white-space: nowrap;
+    letter-spacing: 0.01em;
+    flex: 1;
   }
-  .cat-head .rule { flex: 1; height: 1px; background: var(--rule); }
-  .cat-head .count { font-size: 12px; color: var(--muted); }
+  .cat-head .chev {
+    flex-shrink: 0;
+    color: var(--wine-soft);
+    transition: transform 0.25s ease;
+  }
+  .cat.open .cat-head .chev { transform: rotate(180deg); }
+
+  .panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.28s ease;
+  }
+  .cat.open .panel { grid-template-rows: 1fr; }
+  .panel-inner { overflow: hidden; padding-bottom: 0.5rem; }
 
   /* ── Singolo vino ─────────────────────────────────────── */
   .wine { padding: 0.85rem 0; border-bottom: 1px solid var(--rule); }
@@ -136,13 +172,6 @@
     font-size: 13px;
     color: var(--muted);
     margin-top: 3px;
-  }
-  .wine-adj {
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 13.5px;
-    color: var(--wine-soft);
-    margin-top: 5px;
   }
 
   /* ── Stati ────────────────────────────────────────────── */
@@ -216,6 +245,7 @@ const CATEGORIE = [
 
 let dati = { bianchi: [], rossi: [], bollicine: [] };
 let filtro = '';
+const aperte = new Set();   // categorie aperte dall'utente (tutte chiuse all'avvio)
 
 const el = (id) => document.getElementById(id);
 
@@ -267,8 +297,6 @@ function rigaVino(v) {
     .map(esc).join(' · ');
   const prezzo = (v.vendita && String(v.vendita).trim() !== '')
     ? '<span class="wine-price">' + esc(v.vendita) + '</span>' : '';
-  const adj = (v.adj && String(v.adj).trim() !== '')
-    ? '<div class="wine-adj">' + esc(v.adj) + '</div>' : '';
   return (
     '<div class="wine">' +
       '<div class="wine-top">' +
@@ -276,7 +304,6 @@ function rigaVino(v) {
         prezzo +
       '</div>' +
       (meta ? '<div class="wine-meta">' + meta + '</div>' : '') +
-      adj +
     '</div>'
   );
 }
@@ -287,18 +314,22 @@ function render() {
   let html = '';
   let totale = 0;
 
+  const filtroAttivo = filtro.trim() !== '';
   CATEGORIE.forEach(cat => {
     const vini = disponibili(dati[cat.key]);
     if (vini.length === 0) return;
     totale += vini.length;
+    // Con la ricerca attiva le tendine con risultati si aprono da sole
+    const aperta = filtroAttivo ? true : aperte.has(cat.key);
     html +=
-      '<section class="cat">' +
-        '<div class="cat-head">' +
+      '<section class="cat' + (aperta ? ' open' : '') + '" data-key="' + cat.key + '">' +
+        '<button class="cat-head" type="button" aria-expanded="' + aperta + '">' +
           '<h2>' + cat.nome + '</h2>' +
-          '<span class="rule"></span>' +
-          '<span class="count">' + vini.length + '</span>' +
-        '</div>' +
-        vini.map(rigaVino).join('') +
+          '<svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+        '</button>' +
+        '<div class="panel"><div class="panel-inner">' +
+          vini.map(rigaVino).join('') +
+        '</div></div>' +
       '</section>';
   });
 
@@ -315,6 +346,18 @@ function render() {
   el('content').innerHTML = html;
   el('footer').classList.toggle('hidden', totale === 0);
 }
+
+// Apertura/chiusura tendine (delega: il contenuto viene rigenerato a ogni render)
+el('content').addEventListener('click', (e) => {
+  const head = e.target.closest('.cat-head');
+  if (!head) return;
+  const sec = head.closest('.cat');
+  const key = sec.getAttribute('data-key');
+  const nowOpen = !sec.classList.contains('open');
+  sec.classList.toggle('open', nowOpen);
+  head.setAttribute('aria-expanded', nowOpen);
+  if (nowOpen) aperte.add(key); else aperte.delete(key);
+});
 
 // Ricerca dal vivo
 el('search').addEventListener('input', (e) => {
