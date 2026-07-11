@@ -454,13 +454,63 @@
   }
   .btn-rimuovi:hover { color: var(--red); }
   .bolla-footer { display: flex; gap: 10px; margin-top: 1.25rem; }
+
+  /* ── Accesso protetto ─────────────────────────────────── */
+  #login-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--text); padding: 24px;
+  }
+  .login-card {
+    background: var(--surface); border-radius: 14px;
+    padding: 2rem 1.5rem; width: 100%; max-width: 340px;
+    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .login-title { font-size: 18px; font-weight: 600; color: var(--text); }
+  .login-sub {
+    font-size: 12px; color: var(--muted); letter-spacing: 0.12em;
+    text-transform: uppercase; margin: 0.35rem 0 1.4rem;
+  }
+  .login-card input {
+    width: 100%; padding: 12px 14px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 16px; color: var(--text);
+    background: var(--bg); outline: none; margin-bottom: 0.4rem;
+  }
+  .login-card input:focus { border-color: #7B1C2E; }
+  .login-err { display: none; color: var(--red); font-size: 13px; margin-bottom: 0.4rem; }
+  .login-btn {
+    width: 100%; padding: 12px; margin-top: 0.6rem; border: none;
+    border-radius: 8px; background: #7B1C2E; color: #fff;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .login-btn:disabled { opacity: 0.6; cursor: default; }
+
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .logout-btn {
+    background: rgba(255,255,255,0.12); color: #F7F5F0; border: none;
+    border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
+  }
+  .logout-btn:hover { background: rgba(255,255,255,0.22); }
 </style>
 </head>
 <body>
 
+<div id="login-overlay">
+  <div class="login-card">
+    <div class="login-title">Cantina · Osteria Fondo</div>
+    <div class="login-sub">Accesso riservato</div>
+    <input type="password" id="login-pw" placeholder="Password" autocomplete="current-password" />
+    <div class="login-err" id="login-err">Password errata</div>
+    <button class="login-btn" id="login-btn">Entra</button>
+  </div>
+</div>
+
 <header>
   <h1>Cantina · Osteria Fondo</h1>
-  <span id="last-sync">—</span>
+  <div class="header-right">
+    <span id="last-sync">—</span>
+    <button class="logout-btn" id="logout-btn" title="Esci dal gestionale">Esci</button>
+  </div>
 </header>
 
 <div class="sync-bar" id="sync-bar">
@@ -622,6 +672,50 @@ function escHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// ── Accesso protetto (la password è il token verificato dal backend) ──────────
+const TOKEN_KEY = 'of_cantina_pw';
+function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
+
+async function tentaLogin() {
+  const pw = document.getElementById('login-pw').value;
+  const err = document.getElementById('login-err');
+  const btn = document.getElementById('login-btn');
+  if (!pw) return;
+  btn.disabled = true; btn.textContent = 'Verifica…'; err.style.display = 'none';
+  try {
+    const res = await fetch(URL + '?action=verificaToken&token=' + encodeURIComponent(pw));
+    const r = await res.json();
+    if (r && r.ok) {
+      localStorage.setItem(TOKEN_KEY, pw);
+      document.getElementById('login-overlay').style.display = 'none';
+      fetchData();
+    } else {
+      err.textContent = 'Password errata';
+      err.style.display = 'block';
+    }
+  } catch(e) {
+    err.textContent = 'Errore di connessione — riprova';
+    err.style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = 'Entra';
+}
+
+function logout() {
+  localStorage.removeItem(TOKEN_KEY);
+  location.reload();
+}
+
+function forzaLogin() {
+  localStorage.removeItem(TOKEN_KEY);
+  document.getElementById('login-overlay').style.display = 'flex';
+}
+
+// true se il backend ha rifiutato per password non valida (e riapre il login)
+function authFallita(r) {
+  if (r && r.errore && /autorizz/i.test(r.errore)) { forzaLogin(); return true; }
+  return false;
+}
+
 function setSyncStatus(stato, msg) {
   const bar = document.getElementById('sync-bar');
   const txt = document.getElementById('sync-msg');
@@ -655,9 +749,10 @@ async function fetchData() {
 async function aggiornaSheet(categoria, id, nuovaQty) {
   setSyncStatus('', 'Salvataggio...');
   try {
-    const url = URL + '?action=aggiorna&categoria=' + categoria + '&id=' + id + '&quantita=' + nuovaQty;
+    const url = URL + '?action=aggiorna&categoria=' + categoria + '&id=' + id + '&quantita=' + nuovaQty + '&token=' + encodeURIComponent(getToken());
     const res = await fetch(url);
     const r = await res.json();
+    if (authFallita(r)) { setSyncStatus('err', 'Sessione scaduta — reinserisci la password'); return; }
     if (r.errore) throw new Error(r.errore);
     setSyncStatus('ok', 'Salvato su Google Sheet');
     aggiornaOra();
@@ -683,9 +778,11 @@ async function aggiungiSheetCompleto(categoria, nome, produttore, vitigni, regio
       + '&vendita=' + vendita
       + '&quantita=' + qty
       + '&soglia=' + soglia
-      + '&area=' + encodeURIComponent(area || '');
+      + '&area=' + encodeURIComponent(area || '')
+      + '&token=' + encodeURIComponent(getToken());
     const res = await fetch(url);
     const r = await res.json();
+    if (authFallita(r)) { setSyncStatus('err', 'Sessione scaduta — reinserisci la password'); return; }
     if (r.errore) throw new Error(r.errore);
     setSyncStatus('ok', 'Aggiunto e salvato su Google Sheet');
     aggiornaOra();
@@ -975,6 +1072,7 @@ async function generaAdj(vino) {
   try {
     const params = new URLSearchParams({
       action: 'generaAdj',
+      token: getToken(),
       nome: vino.nome || '',
       produttore: vino.produttore || '',
       vitigno: vino.vitigno || ''
@@ -1016,7 +1114,7 @@ async function generaTutti() {
         if (vino) vino.adj = adj;
         // Salva nel foglio
         try {
-          await fetch(URL + '?action=salvaAdj&categoria=' + v._cat + '&id=' + v.id + '&adj=' + encodeURIComponent(adj));
+          await fetch(URL + '?action=salvaAdj&categoria=' + v._cat + '&id=' + v.id + '&adj=' + encodeURIComponent(adj) + '&token=' + encodeURIComponent(getToken()));
         } catch(e) {}
       }
     }));
@@ -1040,7 +1138,7 @@ async function generaAdjNuovo(cat, id) {
   vino.adjLoading = false;
   if (adj) {
     try {
-      await fetch(URL + '?action=salvaAdj&categoria=' + cat + '&id=' + vino.id + '&adj=' + encodeURIComponent(adj));
+      await fetch(URL + '?action=salvaAdj&categoria=' + cat + '&id=' + vino.id + '&adj=' + encodeURIComponent(adj) + '&token=' + encodeURIComponent(getToken()));
     } catch(e) {}
   }
   renderList(cat);
@@ -1087,6 +1185,7 @@ async function analizzaBolla(file) {
     // Invia ad Apps Script che chiama Anthropic in modo sicuro
     const urlParams = new URLSearchParams({
       action: 'analizzaBolla',
+      token: getToken(),
       imageBase64: base64,
       mimeType: mimeType
     });
@@ -1212,7 +1311,16 @@ function resetBolla() {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-fetchData();
+document.getElementById('login-btn').addEventListener('click', tentaLogin);
+document.getElementById('login-pw').addEventListener('keydown', function(e){ if (e.key === 'Enter') tentaLogin(); });
+document.getElementById('logout-btn').addEventListener('click', logout);
+
+if (getToken()) {
+  document.getElementById('login-overlay').style.display = 'none';
+  fetchData();
+} else {
+  document.getElementById('login-overlay').style.display = 'flex';
+}
 </script>
 </body>
 </html>
