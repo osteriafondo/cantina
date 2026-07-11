@@ -66,13 +66,11 @@
     border-bottom: 1px solid var(--rule);
     margin-bottom: 1.8rem;
   }
-  .brand {
-    font-family: var(--serif);
-    font-size: 13px;
-    letter-spacing: 0.32em;
-    text-transform: uppercase;
-    color: var(--wine);
-    font-weight: 700;
+  .brand-logo {
+    display: block;
+    width: min(220px, 60%);
+    height: auto;
+    margin: 0 auto 0.55rem;
   }
   .title {
     font-family: var(--serif);
@@ -239,7 +237,7 @@
 <body>
 
 <header>
-  <div class="brand">Osteria Fondo</div>
+  <img class="brand-logo" src="logo.svg" alt="Osteria Fondo" />
   <h1 class="title">Carta dei Vini</h1>
 </header>
 
@@ -351,6 +349,42 @@ function rigaVino(v) {
   );
 }
 
+// Regioni italiane ordinate da nord a sud (parole chiave per riconoscere il campo "regione")
+function norm(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+const REGIONI_NORD_SUD = [
+  ['trentino', 'alto adige', 'sudtirol', 'bolzano', 'trento'],
+  ["valle d'aosta", 'valle daosta', 'aosta'],
+  ['friuli', 'venezia giulia'],
+  ['veneto'],
+  ['lombardia'],
+  ['piemonte'],
+  ['liguria'],
+  ['emilia', 'romagna'],
+  ['toscana'],
+  ['marche'],
+  ['umbria'],
+  ['lazio'],
+  ['abruzzo'],
+  ['molise'],
+  ['campania'],
+  ['puglia'],
+  ['basilicata'],
+  ['calabria'],
+  ['sicilia'],
+  ['sardegna']
+];
+function indiceRegione(regione) {
+  const r = norm(regione);
+  for (let i = 0; i < REGIONI_NORD_SUD.length; i++) {
+    for (const k of REGIONI_NORD_SUD[i]) {
+      if (r.indexOf(k) !== -1) return i;
+    }
+  }
+  return 999; // regione sconosciuta o vuota: in fondo
+}
+
 // Contenuto di una categoria: con sottocategorie Italia/Estero se cat.sub
 function contenutoCategoria(cat, vini) {
   if (!cat.sub) return vini.map(rigaVino).join('');
@@ -362,6 +396,9 @@ function contenutoCategoria(cat, vini) {
     else if (a === 'estero') estero.push(v);
     else altri.push(v);  // area non impostata: mostrato comunque (senza sottotitolo)
   });
+
+  // I vini italiani vengono ordinati per regione, da nord a sud
+  italia.sort((a, b) => indiceRegione(a.regione) - indiceRegione(b.regione));
 
   let out = '';
   if (italia.length) out += '<div class="subcat">Italia</div>' + italia.map(rigaVino).join('');
