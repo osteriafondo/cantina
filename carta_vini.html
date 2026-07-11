@@ -110,6 +110,32 @@
   .search input::placeholder { color: var(--hint); }
   .search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--hint); }
 
+  /* ── Sfuso della casa ─────────────────────────────────── */
+  .sfuso {
+    background: #F1E7E3;
+    border: 1px solid #E6D3CE;
+    border-radius: 14px;
+    padding: 1rem 1.15rem 1.05rem;
+    margin-bottom: 1.9rem;
+  }
+  .sfuso-title {
+    font-family: var(--serif);
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--wine);
+    margin-bottom: 0.6rem;
+  }
+  .sfuso-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 0.32rem 0;
+  }
+  .sfuso-row + .sfuso-row { border-top: 1px solid #E6D3CE; }
+  .sfuso-nome { font-family: var(--serif); font-size: 15.5px; color: var(--ink); flex: 1; min-width: 0; }
+  .sfuso-prezzi { font-size: 13.5px; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
   /* ── Sezioni categoria (a tendina) ────────────────────── */
   .cat { border-bottom: 1px solid var(--rule); }
   .cat-head {
@@ -145,7 +171,7 @@
     transition: grid-template-rows 0.28s ease;
   }
   .cat.open .panel { grid-template-rows: 1fr; }
-  .panel-inner { overflow: hidden; padding-bottom: 0.5rem; }
+  .panel-inner { overflow: hidden; min-height: 0; }
 
   .subcat {
     font-family: var(--sans);
@@ -207,16 +233,6 @@
   }
   .retry:hover { background: var(--wine); color: var(--paper-2); }
 
-  footer {
-    text-align: center;
-    font-size: 11.5px;
-    letter-spacing: 0.08em;
-    color: var(--hint);
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--rule);
-    margin-top: 1rem;
-  }
-
   .hidden { display: none; }
 </style>
 </head>
@@ -225,7 +241,6 @@
 <header>
   <div class="brand">Osteria Fondo</div>
   <h1 class="title">Carta dei Vini</h1>
-  <div class="subtitle">Selezione disponibile</div>
 </header>
 
 <div class="wrap">
@@ -235,16 +250,24 @@
     <input type="text" id="search" placeholder="Cerca un vino, un produttore…" autocomplete="off"/>
   </div>
 
+  <div class="sfuso">
+    <div class="sfuso-title">Lo Sfuso della Casa</div>
+    <div class="sfuso-row">
+      <span class="sfuso-nome">Bianco — Trebbiano Bio</span>
+      <span class="sfuso-prezzi">€ 7 (0,5) · € 10 (0,75)</span>
+    </div>
+    <div class="sfuso-row">
+      <span class="sfuso-nome">Rosso — Sangiovese Bio</span>
+      <span class="sfuso-prezzi">€ 7 (0,5) · € 10 (0,75)</span>
+    </div>
+  </div>
+
   <div id="content"></div>
 
   <div id="loading" class="state">
     <div class="spinner"></div>
     Caricamento della carta…
   </div>
-
-  <footer id="footer" class="hidden">
-    Solo vini disponibili · aggiornato in tempo reale
-  </footer>
 
 </div>
 
@@ -277,7 +300,6 @@ function esc(s) {
 async function carica() {
   el('loading').classList.remove('hidden');
   el('content').innerHTML = '';
-  el('footer').classList.add('hidden');
   try {
     const res = await fetch(URL + '?action=leggi');
     const d = await res.json();
@@ -384,7 +406,6 @@ function render() {
   }
 
   el('content').innerHTML = html;
-  el('footer').classList.toggle('hidden', totale === 0);
 }
 
 // Apertura/chiusura tendine (delega: il contenuto viene rigenerato a ogni render)
