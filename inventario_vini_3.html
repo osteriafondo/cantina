@@ -614,6 +614,14 @@ let searchQ = { bianchi: '', rossi: '', bollicine: '', macerati: '', rosati: '' 
 
 // ── Sync ──────────────────────────────────────────────────────────────────────
 
+// Rende innocuo il testo dei dati prima di inserirlo nella pagina
+// (previene i "vini trappola": nomi con codice nascosto)
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function setSyncStatus(stato, msg) {
   const bar = document.getElementById('sync-bar');
   const txt = document.getElementById('sync-msg');
@@ -758,12 +766,12 @@ function onGlobalSearch(val) {
       <div class="wine-card ${w.qty === 0 ? 'zero' : ''} ${w.qty > 0 && w.qty <= SOGLIA_FISSA ? 'low' : ''}">
         <div class="wine-info">
           <div class="wine-name">
-            <span class="wine-name-text ${fontClass}">${w.nome}</span>
+            <span class="wine-name-text ${fontClass}">${escHtml(w.nome)}</span>
             <span class="global-cat-tag ${w._cat}">${catLabel[w._cat]}</span>
-            ${w.vendita ? '<span class="price-tag">' + w.vendita + '</span>' : ''}
+            ${w.vendita ? '<span class="price-tag">' + escHtml(w.vendita) + '</span>' : ''}
           </div>
-          <div class="wine-sub">${[w.produttore, w.vitigno, w.regione, w.area].filter(Boolean).join(' · ')}</div>
-          ${w.adj ? '<div class="wine-adj">✦ ' + w.adj + '</div>' : ''}
+          <div class="wine-sub">${[w.produttore, w.vitigno, w.regione, w.area].filter(Boolean).map(escHtml).join(' · ')}</div>
+          ${w.adj ? '<div class="wine-adj">✦ ' + escHtml(w.adj) + '</div>' : ''}
         </div>
         <div class="qty-ctrl">
           <button class="qty-btn" onclick="cambiaQtyGlobale('${w._cat}',${w.id},-1)">−</button>
@@ -846,11 +854,11 @@ function renderList(cat) {
       <div class="wine-card ${w.qty === 0 ? 'zero' : ''} ${w.qty > 0 && w.qty <= SOGLIA_FISSA ? 'low' : ''}">
         <div class="wine-info">
           <div class="wine-name">
-            <span class="wine-name-text ${fontClass}">${w.nome}</span>
-            ${w.vendita ? '<span class="price-tag">' + w.vendita + '</span>' : ''}
+            <span class="wine-name-text ${fontClass}">${escHtml(w.nome)}</span>
+            ${w.vendita ? '<span class="price-tag">' + escHtml(w.vendita) + '</span>' : ''}
           </div>
-          <div class="wine-sub">${[w.produttore, w.vitigno, w.regione, w.area].filter(Boolean).join(' · ')}</div>
-          ${w.adj ? '<div class="wine-adj">✦ ' + w.adj + '</div>' : w.adjLoading ? '<div class="adj-loading">Generando…</div>' : ''}
+          <div class="wine-sub">${[w.produttore, w.vitigno, w.regione, w.area].filter(Boolean).map(escHtml).join(' · ')}</div>
+          ${w.adj ? '<div class="wine-adj">✦ ' + escHtml(w.adj) + '</div>' : w.adjLoading ? '<div class="adj-loading">Generando…</div>' : ''}
         </div>
         <div class="qty-ctrl">
           <button class="qty-btn" onclick="cambiaQty('${cat}',${w.id},-1)">−</button>
@@ -951,7 +959,7 @@ function renderLog() {
     <div class="log-row">
       <span class="log-time">${l.t}</span>
       <span class="log-cat">${catLabel[l.cat]}</span>
-      <span class="log-name">${l.nome}</span>
+      <span class="log-name">${escHtml(l.nome)}</span>
       <span class="log-delta ${l.delta > 0 ? 'pos' : 'neg'}">${l.delta > 0 ? '+' : ''}${l.delta}</span>
       <span class="log-tot">tot. ${l.qty}</span>
     </div>
@@ -1113,7 +1121,7 @@ function mostraRisultati() {
   list.innerHTML = bollaRisultati.map((v, i) => `
     <div class="risultato-card">
       <div class="risultato-top">
-        <div class="risultato-nome">${v.nome}</div>
+        <div class="risultato-nome">${escHtml(v.nome)}</div>
         <select class="cat-select" id="cat-${i}">
           <option value="bollicine" ${v.categoria==='bollicine'?'selected':''}>Bollicine</option>
           <option value="bianchi" ${v.categoria==='bianchi'?'selected':''}>Bianco</option>
@@ -1126,11 +1134,11 @@ function mostraRisultati() {
       <div class="risultato-fields">
         <div class="risultato-field">
           <label>Nome</label>
-          <input type="text" id="nome-${i}" value="${v.nome}" />
+          <input type="text" id="nome-${i}" value="${escHtml(v.nome)}" />
         </div>
         <div class="risultato-field">
           <label>Produttore</label>
-          <input type="text" id="prod-${i}" value="${v.produttore || ''}" />
+          <input type="text" id="prod-${i}" value="${escHtml(v.produttore || '')}" />
         </div>
         <div class="risultato-field">
           <label>Bottiglie</label>
