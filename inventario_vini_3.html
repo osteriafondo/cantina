@@ -491,6 +491,24 @@
     border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
   }
   .logout-btn:hover { background: rgba(255,255,255,0.22); }
+
+  /* ── Statistiche ──────────────────────────────────────── */
+  .stats-actions { display: flex; gap: 10px; margin: 0.6rem 0 1.2rem; flex-wrap: wrap; }
+  .snap-btn { flex: 1; min-width: 200px; padding: 12px; border: none; border-radius: 8px; background: #7B1C2E; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .snap-refresh { padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--muted); cursor: pointer; }
+  .stats-sez { margin-bottom: 2.2rem; }
+  .stats-sez-title { font-size: 17px; font-weight: 700; color: var(--text); }
+  .stats-sez-sub { font-size: 12px; color: var(--muted); margin-bottom: 0.9rem; }
+  .stat-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 1rem; }
+  .stile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+  .stile-num { font-size: 20px; font-weight: 700; color: var(--text); }
+  .stile-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .clsf { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .clsf-title { font-size: 12px; font-weight: 600; color: #7B1C2E; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .clsf-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+  .clsf-pos { width: 20px; height: 20px; flex-shrink: 0; background: #7B1C2E; color: #fff; border-radius: 50%; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+  .clsf-nome { flex: 1; font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .clsf-sold { font-size: 13px; color: var(--muted); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -526,6 +544,7 @@
   <div class="tab" onclick="setTab('rosati')">Rosati</div>
   <div class="tab" onclick="setTab('log')">Registro</div>
   <div class="tab" onclick="setTab('bolla')">📄 Bolla</div>
+  <div class="tab" onclick="setTab('statistiche')">📊 Statistiche</div>
 </div>
 
 <div class="global-search-bar">
@@ -614,6 +633,7 @@
   <div id="pane-bollicine" style="display:none"></div>
   <div id="pane-macerati" style="display:none"></div>
   <div id="pane-rosati" style="display:none"></div>
+  <div id="pane-statistiche" style="display:none"></div>
   <div id="pane-log" style="display:none">
     <div class="list-label" style="margin-top:.25rem">Operazioni recenti</div>
     <div class="log-list" id="log-list">
@@ -815,12 +835,13 @@ function renderError(cat) {
 function setTab(t) {
   activeTab = t;
   document.getElementById('pane-global-search').style.display = 'none';
-  ['bianchi','rossi','bollicine','macerati','rosati','log','bolla'].forEach((c, i) => {
+  ['bianchi','rossi','bollicine','macerati','rosati','log','bolla','statistiche'].forEach((c, i) => {
     document.getElementById('pane-' + c).style.display = c === t ? 'block' : 'none';
     document.querySelectorAll('.tab')[i].classList.toggle('active', c === t);
   });
   if (t === 'log') renderLog();
   else if (t === 'bolla') return;
+  else if (t === 'statistiche') renderStatistiche();
   else renderCat(t);
 }
 
@@ -835,7 +856,7 @@ function onGlobalSearch(val) {
   }
 
   // Nascondi tutte le altre vista, mostra risultati globali
-  ['bianchi','rossi','bollicine','macerati','rosati','log','bolla'].forEach(c => {
+  ['bianchi','rossi','bollicine','macerati','rosati','log','bolla','statistiche'].forEach(c => {
     document.getElementById('pane-' + c).style.display = 'none';
   });
   globalPane.style.display = 'block';
@@ -1043,6 +1064,86 @@ function salvaDrawer() {
       .then(() => generaAdjNuovo(cat, nuovoId));
   }
   chiudiDrawer();
+}
+
+// ── Statistiche ───────────────────────────────────────────────────────────────
+function eur(n) { return (Number(n) || 0).toFixed(2).replace('.', ','); }
+
+async function renderStatistiche() {
+  const pane = document.getElementById('pane-statistiche');
+  pane.innerHTML = `
+    <div class="stats-actions">
+      <button class="snap-btn" onclick="salvaSnapshotOra()">📸 Salva fotografia giacenze ora</button>
+      <button class="snap-refresh" onclick="renderStatistiche()">↻ Aggiorna</button>
+    </div>
+    <div id="stats-body"><div class="empty">Caricamento statistiche…</div></div>
+  `;
+  try {
+    const res = await fetch(URL + '?action=statistiche&token=' + encodeURIComponent(getToken()));
+    const r = await res.json();
+    if (authFallita(r)) return;
+    if (r.errore) throw new Error(r.errore);
+    document.getElementById('stats-body').innerHTML =
+      sezionePeriodo('Questa settimana', r.settimana, false) +
+      sezionePeriodo('Questo mese', r.mese, true);
+  } catch(e) {
+    document.getElementById('stats-body').innerHTML =
+      '<div class="empty">Statistiche non disponibili.<br>' + escHtml(e.message) + '</div>';
+  }
+}
+
+function sezionePeriodo(titolo, p, isMese) {
+  if (!p || !p.disponibile) {
+    return '<div class="stats-sez"><div class="stats-sez-title">' + titolo + '</div>' +
+      '<div class="empty">' + escHtml((p && p.messaggio) || 'Dati non ancora disponibili.') + '</div></div>';
+  }
+  const sub = isMese ? escHtml(p.mese || '') : ('da ' + escHtml(p.da || '') + ' a ' + escHtml(p.a || ''));
+  const pct = (p.wineCostPct != null) ? (p.wineCostPct + '%') : '—';
+  const tiles =
+    '<div class="stat-tiles">' +
+      '<div class="stile"><div class="stile-num">' + (p.bottiglie || 0) + '</div><div class="stile-lbl">Bottiglie vendute</div></div>' +
+      '<div class="stile"><div class="stile-num">€ ' + eur(p.costo) + '</div><div class="stile-lbl">Wine cost</div></div>' +
+      '<div class="stile"><div class="stile-num">€ ' + eur(p.incasso) + '</div><div class="stile-lbl">Incasso vini</div></div>' +
+      '<div class="stile"><div class="stile-num">' + pct + '</div><div class="stile-lbl">Wine cost %</div></div>' +
+    '</div>';
+  const catNomi = { bollicine: 'Bollicine', bianchi: 'Bianchi', macerati: 'Macerati', rosati: 'Rosati', rossi: 'Rossi' };
+  let cats = '';
+  Object.keys(catNomi).forEach(k => {
+    if (p.topCat && p.topCat[k] && p.topCat[k].length) cats += classifica(catNomi[k], p.topCat[k]);
+  });
+  return '<div class="stats-sez">' +
+    '<div class="stats-sez-title">' + titolo + '</div>' +
+    '<div class="stats-sez-sub">' + sub + '</div>' +
+    tiles +
+    classifica('Più venduti', p.top) +
+    cats +
+  '</div>';
+}
+
+function classifica(titolo, lista) {
+  if (!lista || !lista.length) return '';
+  const righe = lista.map((v, i) =>
+    '<div class="clsf-row">' +
+      '<span class="clsf-pos">' + (i + 1) + '</span>' +
+      '<span class="clsf-nome">' + escHtml(v.nome) + '</span>' +
+      '<span class="clsf-sold">' + (v.sold || 0) + ' btg · € ' + eur(v.costo) + '</span>' +
+    '</div>').join('');
+  return '<div class="clsf"><div class="clsf-title">' + escHtml(titolo) + '</div>' + righe + '</div>';
+}
+
+async function salvaSnapshotOra() {
+  if (!confirm('Salvare adesso una fotografia delle giacenze attuali? (di norma avviene da solo ogni domenica)')) return;
+  setSyncStatus('', 'Salvataggio fotografia…');
+  try {
+    const res = await fetch(URL + '?action=salvaSnapshot&token=' + encodeURIComponent(getToken()));
+    const r = await res.json();
+    if (authFallita(r)) { setSyncStatus('err', 'Sessione scaduta — reinserisci la password'); return; }
+    if (r.errore) throw new Error(r.errore);
+    setSyncStatus('ok', 'Fotografia salvata (' + (r.righe || 0) + ' vini)');
+    renderStatistiche();
+  } catch(e) {
+    setSyncStatus('err', 'Errore: ' + e.message);
+  }
 }
 
 function renderLog() {
