@@ -509,6 +509,16 @@
   .clsf-pos { width: 20px; height: 20px; flex-shrink: 0; background: #7B1C2E; color: #fff; border-radius: 50%; font-size: 12px; display: flex; align-items: center; justify-content: center; }
   .clsf-nome { flex: 1; font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .clsf-sold { font-size: 13px; color: var(--muted); white-space: nowrap; }
+
+  /* ── Modalità nascondi vino ───────────────────────────── */
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .hide-btn { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: 13px; color: var(--muted); cursor: pointer; }
+  .hide-btn.on { border-color: #7B1C2E; color: #7B1C2E; background: #FCEFF0; }
+  .hide-hint { display: none; font-size: 12px; color: #7B1C2E; background: #FCEFF0; border: 1px solid #F0D6D9; border-radius: var(--radius-sm); padding: 8px 10px; margin-bottom: 0.75rem; }
+  .eye-btn { width: 46px; height: 40px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: 18px; cursor: pointer; flex-shrink: 0; }
+  .eye-btn.off { background: #FCEFF0; border-color: #E4B7BC; }
+  .hidden-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: #fff; background: #B03A3A; border-radius: 4px; padding: 1px 6px; flex-shrink: 0; }
+  .wine-card.nascosto { opacity: 0.6; }
 </style>
 </head>
 <body>
@@ -681,6 +691,7 @@ let logs = [];
 let activeTab = 'bianchi';
 let filterLow = { bianchi: false, rossi: false, bollicine: false, macerati: false, rosati: false };
 let searchQ = { bianchi: '', rossi: '', bollicine: '', macerati: '', rosati: '' };
+let hideMode = false;   // modalità "nascondi vino dalla carta"
 
 // ── Sync ──────────────────────────────────────────────────────────────────────
 
@@ -886,6 +897,7 @@ function onGlobalSearch(val) {
           <div class="wine-name">
             <span class="wine-name-text ${fontClass}">${escHtml(w.nome)}</span>
             <span class="global-cat-tag ${w._cat}">${catLabel[w._cat]}</span>
+            ${w.nascosto ? '<span class="hidden-tag">nascosto</span>' : ''}
             ${w.vendita ? '<span class="price-tag">' + escHtml(w.vendita) + '</span>' : ''}
           </div>
           <div class="wine-sub">${[w.produttore, w.vitigno, w.regione, w.area].filter(Boolean).map(escHtml).join(' · ')}</div>
@@ -917,7 +929,9 @@ function renderCat(cat) {
         <button class="filter-btn" id="filterbtn-${cat}" onclick="filterLow['${cat}']=!filterLow['${cat}']; renderList('${cat}'); this.classList.toggle('on')">
           ⚠ Solo scorte basse
         </button>
+        <button class="hide-btn" id="hidebtn-${cat}" onclick="toggleHideMode('${cat}')">👁 Nascondi in carta</button>
       </div>
+      <div class="hide-hint" id="hidehint-${cat}">Modalità attiva: tocca l'occhio di un vino per toglierlo o rimetterlo nella carta clienti. La giacenza non cambia.</div>
       <div class="list-label" id="list-label-${cat}"></div>
       <div class="wine-list" id="wine-list-${cat}"></div>
       <div class="add-section">
@@ -961,6 +975,11 @@ function renderList(cat) {
   const labelEl = document.getElementById('list-label-' + cat);
   if (labelEl) labelEl.textContent = visible.length + 'vin' + (visible.length !== 1 ? 'i' : 'o') + ' visualizzat' + (visible.length !== 1 ? 'i' : 'o');
 
+  const hideBtn = document.getElementById('hidebtn-' + cat);
+  if (hideBtn) hideBtn.classList.toggle('on', hideMode);
+  const hint = document.getElementById('hidehint-' + cat);
+  if (hint) hint.style.display = hideMode ? 'block' : 'none';
+
   const listEl = document.getElementById('wine-list-' + cat);
   if (!listEl) return;
   listEl.innerHTML = visible.length === 0
@@ -968,23 +987,49 @@ function renderList(cat) {
     : visible.map(w => {
         const lung = w.nome.length;
         const fontClass = lung > 34 ? 'name-xs' : lung > 26 ? 'name-sm' : '';
+        const nascTag = w.nascosto ? '<span class="hidden-tag">nascosto</span>' : '';
+        const control = hideMode
+          ? `<button class="eye-btn ${w.nascosto ? 'off' : ''}" onclick="toggleNascosto('${cat}',${w.id})" title="${w.nascosto ? 'Rimetti in carta' : 'Nascondi dalla carta'}">${w.nascosto ? '🙈' : '👁'}</button>`
+          : `<div class="qty-ctrl">
+          <button class="qty-btn" onclick="cambiaQty('${cat}',${w.id},-1)">−</button>
+          <div class="qty-num ${w.qty > 0 && w.qty <= SOGLIA_FISSA ? 'low' : ''}">${w.qty}</div>
+          <button class="qty-btn" onclick="cambiaQty('${cat}',${w.id},+1)">+</button>
+        </div>`;
         return `
-      <div class="wine-card ${w.qty === 0 ? 'zero' : ''} ${w.qty > 0 && w.qty <= SOGLIA_FISSA ? 'low' : ''}">
+      <div class="wine-card ${w.qty === 0 ? 'zero' : ''} ${w.qty > 0 && w.qty <= SOGLIA_FISSA ? 'low' : ''} ${w.nascosto ? 'nascosto' : ''}">
         <div class="wine-info">
           <div class="wine-name">
             <span class="wine-name-text ${fontClass}">${escHtml(w.nome)}</span>
+            ${nascTag}
             ${w.vendita ? '<span class="price-tag">' + escHtml(w.vendita) + '</span>' : ''}
           </div>
           <div class="wine-sub">${[w.produttore, w.vitigno, w.regione, w.area].filter(Boolean).map(escHtml).join(' · ')}</div>
           ${w.adj ? '<div class="wine-adj">✦ ' + escHtml(w.adj) + '</div>' : w.adjLoading ? '<div class="adj-loading">Generando…</div>' : ''}
         </div>
-        <div class="qty-ctrl">
-          <button class="qty-btn" onclick="cambiaQty('${cat}',${w.id},-1)">−</button>
-          <div class="qty-num ${w.qty > 0 && w.qty <= SOGLIA_FISSA ? 'low' : ''}">${w.qty}</div>
-          <button class="qty-btn" onclick="cambiaQty('${cat}',${w.id},+1)">+</button>
-        </div>
+        ${control}
       </div>`;
       }).join('');
+}
+
+function toggleHideMode(cat) {
+  hideMode = !hideMode;
+  renderList(cat);
+}
+
+function toggleNascosto(cat, id) {
+  const w = db[cat].find(x => x.id === id);
+  if (!w) return;
+  w.nascosto = !w.nascosto;
+  renderList(cat);
+  setSyncStatus('', 'Salvataggio...');
+  fetch(URL + '?action=nascondi&categoria=' + cat + '&id=' + id + '&nascosto=' + (w.nascosto ? '1' : '0') + '&token=' + encodeURIComponent(getToken()))
+    .then(r => r.json())
+    .then(r => {
+      if (authFallita(r)) { setSyncStatus('err', 'Sessione scaduta — reinserisci la password'); return; }
+      if (r.errore) throw new Error(r.errore);
+      setSyncStatus('ok', w.nascosto ? 'Vino nascosto dalla carta' : 'Vino di nuovo in carta');
+    })
+    .catch(() => setSyncStatus('err', 'Errore — riprova'));
 }
 
 function cambiaQty(cat, id, delta) {

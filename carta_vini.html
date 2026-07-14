@@ -324,6 +324,7 @@ async function carica() {
 function disponibili(lista) {
   const q = filtro.trim().toLowerCase();
   return (lista || []).filter(v => {
+    if (v.nascosto) return false;                          // nascosto a mano dal gestionale
     if ((parseInt(v.qty) || 0) < 1) return false;          // solo giacenza >= 1
     if (!q) return true;
     const testo = (v.nome + ' ' + (v.produttore || '') + ' ' +
