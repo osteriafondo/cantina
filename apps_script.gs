@@ -157,13 +157,31 @@ function generaAdj(nome, produttore, vitigno) {
 }
 
 function analizzaBolla(ss, imageBase64, mimeType) {
+  // Elenco dei vini gia in inventario (anche a giacenza 0), per far riconoscere
+  // all'AI i duplicati ed evitare che lo stesso vino compaia due volte.
+  var inventario = leggiTutti(ss);
+  var elenco = [];
+  CATEGORIE.forEach(function(cat) {
+    var key = cat.toLowerCase();
+    (inventario[key] || []).forEach(function(v) {
+      elenco.push('- categoria "' + key + '" | nome "' + v.nome + '"' +
+        (v.produttore ? ' | produttore "' + v.produttore + '"' : ''));
+    });
+  });
+  var testoInventario = elenco.length
+    ? elenco.join('\n')
+    : '(inventario vuoto)';
+
   var prompt = 'Sei un assistente per la gestione di una cantina di un ristorante. Analizza questo documento (bolla di consegna di un fornitore di vini) ed estrai TUTTI i vini presenti.\n\n' +
     'Per ogni vino restituisci un JSON array con questi campi:\n' +
     '- nome: nome del vino (stringa)\n' +
     '- produttore: nome del produttore/cantina se presente (stringa, puo essere vuoto)\n' +
     '- quantita: numero di bottiglie (numero intero)\n' +
     '- prezzo: prezzo unitario per bottiglia IVA esclusa se presente (numero decimale, 0 se non presente)\n' +
-    '- categoria: "bianchi", "rossi", "bollicine", "macerati" o "rosati" (deduci dal tipo di vino)\n\n' +
+    '- categoria: "bianchi", "rossi", "bollicine", "macerati" o "rosati" (deduci dal tipo di vino)\n' +
+    '- esistente: se il vino corrisponde a uno gia presente nell inventario qui sotto, un oggetto {"categoria": <categoria del vino in inventario>, "nome": <nome ESATTO come scritto in inventario>}; altrimenti null.\n\n' +
+    'REGOLA IMPORTANTE per "esistente": e lo stesso vino se sono la stessa etichetta dello stesso produttore, ANCHE se cambia l annata (es. 2019 vs 2020), la scrittura, le abbreviazioni o le maiuscole. In quel caso copia esattamente il nome gia presente in inventario. Se il vino non c e (nemmeno a giacenza 0), metti esistente = null.\n\n' +
+    'VINI GIA IN INVENTARIO:\n' + testoInventario + '\n\n' +
     'Rispondi SOLO con il JSON array, nessun testo aggiuntivo.';
   var contentItem = mimeType === 'application/pdf'
     ? { type: 'document', source: { type: 'base64', media_type: mimeType, data: imageBase64 } }

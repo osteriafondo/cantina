@@ -519,6 +519,10 @@
   .eye-btn.off { background: #FCEFF0; border-color: #E4B7BC; }
   .hidden-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: #fff; background: #B03A3A; border-radius: 4px; padding: 1px 6px; flex-shrink: 0; }
   .wine-card.nascosto { opacity: 0.6; }
+
+  /* ── Bolla: riconoscimento vino già in inventario ─────── */
+  .match-badge { font-size: 12px; color: var(--green); background: var(--green-bg); border-radius: 6px; padding: 4px 9px; margin: 8px 0 2px; display: inline-block; }
+  .new-badge { font-size: 12px; color: var(--amber); background: var(--amber-bg); border-radius: 6px; padding: 4px 9px; margin: 8px 0 2px; display: inline-block; }
 </style>
 </head>
 <body>
@@ -1363,19 +1367,25 @@ function mostraRisultati() {
   const list = document.getElementById('risultati-list');
   wrap.style.display = 'block';
 
-  list.innerHTML = bollaRisultati.map((v, i) => `
+  list.innerHTML = bollaRisultati.map((v, i) => {
+    const catSel = (v.esistente && v.esistente.categoria) ? v.esistente.categoria : v.categoria;
+    const badge = v.esistente
+      ? '<div class="match-badge">✓ Già in inventario' + (v.esistente.nome ? ' — ' + escHtml(v.esistente.nome) : '') + ' · aggiungo alla giacenza</div>'
+      : '<div class="new-badge">Nuovo vino · verrà creato</div>';
+    return `
     <div class="risultato-card">
       <div class="risultato-top">
         <div class="risultato-nome">${escHtml(v.nome)}</div>
         <select class="cat-select" id="cat-${i}">
-          <option value="bollicine" ${v.categoria==='bollicine'?'selected':''}>Bollicine</option>
-          <option value="bianchi" ${v.categoria==='bianchi'?'selected':''}>Bianco</option>
-          <option value="macerati" ${v.categoria==='macerati'?'selected':''}>Macerato</option>
-          <option value="rosati" ${v.categoria==='rosati'?'selected':''}>Rosato</option>
-          <option value="rossi" ${v.categoria==='rossi'?'selected':''}>Rosso</option>
+          <option value="bollicine" ${catSel==='bollicine'?'selected':''}>Bollicine</option>
+          <option value="bianchi" ${catSel==='bianchi'?'selected':''}>Bianco</option>
+          <option value="macerati" ${catSel==='macerati'?'selected':''}>Macerato</option>
+          <option value="rosati" ${catSel==='rosati'?'selected':''}>Rosato</option>
+          <option value="rossi" ${catSel==='rossi'?'selected':''}>Rosso</option>
         </select>
         <button class="btn-rimuovi" onclick="rimuoviRisultato(${i})">✕</button>
       </div>
+      ${badge}
       <div class="risultato-fields">
         <div class="risultato-field">
           <label>Nome</label>
@@ -1390,8 +1400,8 @@ function mostraRisultati() {
           <input type="number" id="qty-${i}" value="${v.quantita}" min="1" />
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function rimuoviRisultato(i) {
@@ -1417,15 +1427,24 @@ async function confermaBolla() {
 
     if (!nome || qty < 1) continue;
 
-    // Cerca vino esistente
-    const esistente = db[cat]?.find(w => w.nome.toLowerCase() === nome.toLowerCase());
+    // Cerca vino esistente: prima il riconoscimento dell'AI (anche in un'altra
+    // categoria e con annate/scritture diverse), poi il confronto per nome.
+    let cerca = cat, esistente = null;
+    const match = bollaRisultati[i].esistente;
+    if (match && match.categoria && match.nome) {
+      esistente = (db[match.categoria] || []).find(w => w.nome.trim().toLowerCase() === match.nome.trim().toLowerCase());
+      if (esistente) cerca = match.categoria;
+    }
+    if (!esistente) {
+      esistente = db[cat]?.find(w => w.nome.toLowerCase() === nome.toLowerCase());
+    }
     const now = new Date();
     const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
 
     if (esistente) {
       esistente.qty += qty;
-      logs.unshift({ t, cat, nome: esistente.nome, delta: qty, qty: esistente.qty });
-      await aggiornaSheet(cat, esistente.id, esistente.qty);
+      logs.unshift({ t, cat: cerca, nome: esistente.nome, delta: qty, qty: esistente.qty });
+      await aggiornaSheet(cerca, esistente.id, esistente.qty);
     } else {
       db[cat].push({ id: Date.now() + i, nome, produttore, vitigno: '', regione: '', qty, soglia: 3, adj: '' });
       logs.unshift({ t, cat, nome, delta: qty, qty });
