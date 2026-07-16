@@ -29,7 +29,7 @@ function handleRequest(e) {
     } else if (action === 'leggi') {
       result = leggiTutti(ss);
     } else if (action === 'aggiorna') {
-      result = aggiornaBottiglie(ss, params.categoria, parseInt(params.id), parseInt(params.quantita));
+      result = aggiornaBottiglie(ss, params.categoria, parseInt(params.id), parseInt(params.quantita), (params.acquisto !== undefined && params.acquisto !== '') ? parseFloat(params.acquisto) : null);
     } else if (action === 'aggiungi') {
       result = aggiungiVino(ss, params.categoria, params.nome, params.produttore, params.vitigni, params.regione, parseFloat(params.acquisto), parseFloat(params.vendita), parseInt(params.quantita), parseInt(params.soglia), params.adj || '', params.area || '');
     } else if (action === 'salvaAdj') {
@@ -88,16 +88,18 @@ function leggiTutti(ss) {
   return dati;
 }
 
-function aggiornaBottiglie(ss, categoria, id, nuovaQty) {
+function aggiornaBottiglie(ss, categoria, id, nuovaQty, acquisto) {
   var sheet = ss.getSheetByName(categoria.toUpperCase());
   if (!sheet) return { errore: 'Categoria non trovata' };
   var riga = id + 1;
   var vecchia = parseInt(sheet.getRange(riga, 1).getValue()) || 0;
   var delta = (parseInt(nuovaQty) || 0) - vecchia;
+  // se arriva un prezzo d'acquisto valido (es. da una bolla) aggiorna la colonna F
+  if (acquisto && acquisto > 0) sheet.getRange(riga, 6).setValue(acquisto);
   if (delta > 0) {   // e' un carico (rifornimento): registralo
     var nome = sheet.getRange(riga, 2).getValue();
-    var acquisto = parseFloat(sheet.getRange(riga, 6).getValue()) || 0;
-    logCarico(ss, categoria, nome, delta, acquisto);
+    var prezzoCarico = parseFloat(sheet.getRange(riga, 6).getValue()) || 0;
+    logCarico(ss, categoria, nome, delta, prezzoCarico);
   }
   sheet.getRange(riga, 1).setValue(nuovaQty);
   return { ok: true, id: id, qty: nuovaQty };
@@ -177,11 +179,12 @@ function analizzaBolla(ss, imageBase64, mimeType) {
     '- nome: nome del vino (stringa)\n' +
     '- produttore: nome del produttore/cantina se presente (stringa, puo essere vuoto)\n' +
     '- quantita: numero di bottiglie (numero intero)\n' +
-    '- prezzo: prezzo unitario per bottiglia IVA esclusa se presente (numero decimale, 0 se non presente)\n' +
+    '- prezzo: SOLO il prezzo unitario di acquisto per bottiglia, IVA ESCLUSA (numero decimale, 0 se non presente). NON usare il totale di riga, il totale documento, l imponibile complessivo o il prezzo IVA inclusa.\n' +
     '- categoria: "bianchi", "rossi", "bollicine", "macerati" o "rosati" (deduci dal tipo di vino)\n' +
     '- esistente: se il vino corrisponde a uno gia presente nell inventario qui sotto, un oggetto {"categoria": <categoria del vino in inventario>, "nome": <nome ESATTO come scritto in inventario>}; altrimenti null.\n\n' +
     'REGOLA IMPORTANTE per "esistente": e lo stesso vino se sono la stessa etichetta dello stesso produttore, ANCHE se cambia l annata (es. 2019 vs 2020), la scrittura, le abbreviazioni o le maiuscole. In quel caso copia esattamente il nome gia presente in inventario. Se il vino non c e (nemmeno a giacenza 0), metti esistente = null.\n\n' +
     'VINI GIA IN INVENTARIO:\n' + testoInventario + '\n\n' +
+    'Ignora tutti gli altri numeri della bolla (valore IVA, aliquote, sconti, totali di riga o di documento, colli, codici): non vanno riportati.\n\n' +
     'Rispondi SOLO con il JSON array, nessun testo aggiuntivo.';
   var contentItem = mimeType === 'application/pdf'
     ? { type: 'document', source: { type: 'base64', media_type: mimeType, data: imageBase64 } }

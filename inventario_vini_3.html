@@ -781,10 +781,11 @@ async function fetchData() {
   }
 }
 
-async function aggiornaSheet(categoria, id, nuovaQty) {
+async function aggiornaSheet(categoria, id, nuovaQty, acquisto) {
   setSyncStatus('', 'Salvataggio...');
   try {
-    const url = URL + '?action=aggiorna&categoria=' + categoria + '&id=' + id + '&quantita=' + nuovaQty + '&token=' + encodeURIComponent(getToken());
+    let url = URL + '?action=aggiorna&categoria=' + categoria + '&id=' + id + '&quantita=' + nuovaQty + '&token=' + encodeURIComponent(getToken());
+    if (acquisto && acquisto > 0) url += '&acquisto=' + acquisto;
     const res = await fetch(url);
     const r = await res.json();
     if (authFallita(r)) { setSyncStatus('err', 'Sessione scaduta — reinserisci la password'); return; }
@@ -1441,14 +1442,15 @@ async function confermaBolla() {
     const now = new Date();
     const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
 
+    const prezzoAcq = bollaRisultati[i].prezzo || 0;
     if (esistente) {
       esistente.qty += qty;
       logs.unshift({ t, cat: cerca, nome: esistente.nome, delta: qty, qty: esistente.qty });
-      await aggiornaSheet(cerca, esistente.id, esistente.qty);
+      await aggiornaSheet(cerca, esistente.id, esistente.qty, prezzoAcq);
     } else {
       db[cat].push({ id: Date.now() + i, nome, produttore, vitigno: '', regione: '', qty, soglia: 3, adj: '' });
       logs.unshift({ t, cat, nome, delta: qty, qty });
-      await aggiungiSheetCompleto(cat, nome, produttore, '', '', 0, bollaRisultati[i].prezzo || 0, qty, 3);
+      await aggiungiSheetCompleto(cat, nome, produttore, '', '', prezzoAcq, 0, qty, 3);
     }
     aggiornati++;
   }
