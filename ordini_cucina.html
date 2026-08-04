@@ -525,18 +525,17 @@ function buildMessages() {
   const items = selectedItems();
   const groups = {};
   items.forEach(p => { const f = p.fornitore || "Senza fornitore"; (groups[f] = groups[f] || []).push(p); });
-  const oggi = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
   // ordina i fornitori secondo FORNITORI, poi eventuali extra in coda
   const ordered = Object.keys(groups).sort((a, b) => {
     const ia = FORNITORI.indexOf(a), ib = FORNITORI.indexOf(b);
     return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b, "it");
   });
   return ordered.map(f => {
-    const righe = groups[f]
+    // Solo la lista dei prodotti: saluti e dettagli li aggiungono i ragazzi.
+    const testo = groups[f]
       .sort((a, b) => a.nome.localeCompare(b.nome, "it"))
-      .map(p => `• ${p.nome}: ${fmtQty(getQty(p.id))} ${p.unita}`)
+      .map(p => `${p.nome}: ${fmtQty(getQty(p.id))} ${p.unita}`)
       .join("\n");
-    const testo = `${RISTORANTE} — Ordine ${oggi}\n\n${righe}\n\nGrazie!`;
     return { fornitore: f, count: groups[f].length, testo };
   });
 }
