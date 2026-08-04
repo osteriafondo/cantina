@@ -23,11 +23,7 @@
     --muted: #7A756E;
     --hint: #B0AAA2;
     --red: #C0392B;
-    --red-bg: #FDF0EE;
     --green: #2E7D32;
-    --green-bg: #F0F7F0;
-    --amber: #9C6A00;
-    --amber-bg: #FFF8EC;
     --accent: #7B1C2E;
     --radius: 10px;
     --radius-sm: 6px;
@@ -65,16 +61,20 @@
   }
   header button.reset:active { background: rgba(247,245,240,0.1); }
 
-  .search-wrap {
-    position: sticky; top: 0; z-index: 90;
-    background: var(--surface); border-bottom: 1px solid var(--border);
-    padding: 10px 1rem;
-  }
+  .toolbar { position: sticky; top: 0; z-index: 90; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .search-wrap { padding: 10px 1rem 8px; }
   .search-wrap input {
     width: 100%; border: 1px solid var(--border); background: var(--bg);
     border-radius: var(--radius-sm); padding: 11px 12px; font-size: 15px; color: var(--text);
   }
   .search-wrap input:focus { outline: none; border-color: var(--text); background: var(--surface); }
+
+  .segmented { display: flex; gap: 0; margin: 0 1rem 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+  .segmented button {
+    flex: 1; padding: 8px; font-size: 13px; font-weight: 600; border: 0; background: var(--surface);
+    color: var(--muted); cursor: pointer;
+  }
+  .segmented button.on { background: var(--text); color: #F7F5F0; }
 
   .chips {
     display: flex; gap: 6px; overflow-x: auto; padding: 8px 1rem;
@@ -93,20 +93,16 @@
 
   main { padding: 0 0 120px; }
 
-  .cat {
-    scroll-margin-top: 120px;
-  }
-  .cat-head {
+  .grp { scroll-margin-top: 150px; }
+  .grp-head {
     display: flex; align-items: center; gap: 8px;
-    padding: 14px 1rem 6px; position: sticky; z-index: 50;
-    background: var(--bg);
+    padding: 14px 1rem 6px; position: sticky; z-index: 50; background: var(--bg);
   }
-  .cat-head h2 {
-    font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--accent);
+  .grp-head h2 {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent);
   }
-  .cat-head .count { font-size: 11px; color: var(--hint); font-weight: 600; }
-  .cat-head .line { flex: 1; height: 1px; background: var(--border); }
+  .grp-head .count { font-size: 11px; color: var(--hint); font-weight: 600; }
+  .grp-head .line { flex: 1; height: 1px; background: var(--border); }
 
   .row {
     display: flex; align-items: center; gap: 10px;
@@ -116,11 +112,11 @@
   .row.active { border-color: var(--accent); background: #FCF7F3; }
   .row .info { flex: 1; min-width: 0; }
   .row .name { font-weight: 600; font-size: 15px; }
-  .row .meta { font-size: 12px; color: var(--muted); margin-top: 1px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .row .sup { color: var(--hint); }
-  .row .sup::before { content: "· "; }
+  .row .meta { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .row .meta .sub { color: var(--hint); }
+  .row .meta .sub::before { content: "· "; }
 
-  .stepper { display: flex; align-items: center; gap: 0; flex: 0 0 auto; }
+  .stepper { display: flex; align-items: center; flex: 0 0 auto; }
   .stepper button {
     width: 34px; height: 38px; border: 1px solid var(--border); background: var(--bg);
     color: var(--text); font-size: 20px; line-height: 1; cursor: pointer; user-select: none;
@@ -138,10 +134,7 @@
   .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .stepper input:focus { outline: none; }
   .stepper.filled input { color: var(--accent); }
-  .stepper .unit {
-    font-size: 11px; color: var(--muted); align-self: center; padding-left: 8px;
-    min-width: 26px; text-align: left;
-  }
+  .stepper .unit { font-size: 11px; color: var(--muted); align-self: center; padding-left: 8px; min-width: 34px; text-align: left; }
 
   .empty { text-align: center; color: var(--hint); padding: 40px 1rem; font-size: 14px; }
 
@@ -160,45 +153,22 @@
   .bar button.generate:disabled { background: var(--border); color: var(--hint); cursor: default; }
   .bar button.generate:active:not(:disabled) { opacity: 0.9; }
 
-  /* Sheet ordini */
-  .overlay {
-    position: fixed; inset: 0; z-index: 200; background: rgba(26,23,20,0.45);
-    display: none; align-items: flex-end; justify-content: center;
-  }
+  .overlay { position: fixed; inset: 0; z-index: 200; background: rgba(26,23,20,0.45); display: none; align-items: flex-end; justify-content: center; }
   .overlay.open { display: flex; }
-  .sheet {
-    background: var(--bg); width: 100%; max-width: 640px; max-height: 92vh;
-    border-radius: 16px 16px 0 0; display: flex; flex-direction: column; overflow: hidden;
-  }
-  .sheet-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 1rem 12px; background: var(--surface); border-bottom: 1px solid var(--border);
-  }
+  .sheet { background: var(--bg); width: 100%; max-width: 640px; max-height: 92vh; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; overflow: hidden; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 1rem 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
   .sheet-head h2 { font-size: 16px; font-weight: 700; }
   .sheet-head .close { background: none; border: 0; font-size: 26px; line-height: 1; color: var(--muted); cursor: pointer; }
   .sheet-body { overflow-y: auto; padding: 12px 1rem 24px; }
 
-  .order-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    margin-bottom: 12px; overflow: hidden;
-  }
-  .order-card .oc-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 11px 12px; background: #FCF7F3; border-bottom: 1px solid var(--border);
-  }
+  .order-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
+  .order-card .oc-head { display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; background: #FCF7F3; border-bottom: 1px solid var(--border); }
   .order-card .oc-head .name { font-weight: 700; font-size: 14px; color: var(--accent); }
   .order-card .oc-head .n { font-size: 11px; color: var(--muted); }
-  .order-card textarea {
-    width: 100%; border: 0; resize: vertical; min-height: 130px; padding: 12px;
-    font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.55;
-    color: var(--text); background: var(--surface);
-  }
+  .order-card textarea { width: 100%; border: 0; resize: vertical; min-height: 130px; padding: 12px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.55; color: var(--text); background: var(--surface); }
   .order-card textarea:focus { outline: none; }
   .order-card .oc-actions { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
-  .order-card .oc-actions button {
-    flex: 1; padding: 11px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600;
-    cursor: pointer; border: 1px solid var(--border);
-  }
+  .order-card .oc-actions button { flex: 1; padding: 11px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); }
   .btn-copy { background: var(--text); color: #fff; border-color: var(--text) !important; }
   .btn-copy.done { background: var(--green); border-color: var(--green) !important; }
   .btn-wa { background: #25D366; color: #fff; border-color: #25D366 !important; }
@@ -215,9 +185,15 @@
   <button class="reset" onclick="nuovaSerata()">Nuova serata</button>
 </header>
 
-<div class="search-wrap">
-  <input id="search" type="text" placeholder="Cerca prodotto…" autocomplete="off"
-    oninput="state.q=this.value; render()" />
+<div class="toolbar">
+  <div class="search-wrap">
+    <input id="search" type="text" placeholder="Cerca prodotto…" autocomplete="off"
+      oninput="state.q=this.value; render()" />
+  </div>
+  <div class="segmented">
+    <button id="seg-cat" class="on" onclick="setView('categoria')">Per reparto</button>
+    <button id="seg-forn" onclick="setView('fornitore')">Per fornitore</button>
+  </div>
 </div>
 
 <div class="chips" id="chips"></div>
@@ -241,72 +217,152 @@
 
 <script>
 /* ============================================================
-   CATALOGO PRODOTTI  —  DATI DI ESEMPIO (da sostituire)
+   CATALOGO PRODOTTI — Osteria Fondo
    Ogni prodotto: { nome, cat, unita, fornitore }
-     cat       -> una delle CATEGORIE qui sotto
-     unita     -> unità di misura mostrata a fianco (kg, pz, cassa, L…)
+     cat       -> macrocategoria (reparto) per la visualizzazione
+     unita     -> unità di misura mostrata a fianco / nel messaggio
      fornitore -> con chi si ordina (usato per dividere i messaggi)
+
+   NB: le unità dei prodotti che nella lista non avevano un prefisso
+   (es. Finocchi, Salame, Camembert…) sono state ipotizzate — correggile
+   pure qui sotto in un attimo. Il pesce fresco è stato messo in "carne".
    ============================================================ */
-const CATEGORIE = ["latticini", "frutta e verdura", "carne", "no food", "generici"];
+const CATEGORIE = ["frutta e verdura", "carne", "latticini", "generici", "no food"];
+const FORNITORI = ["CESENATICO", "IGEA", "VALSANA", "PAOLINO", "MST", "ARCA"];
 
 const CATALOGO = [
-  // --- LATTICINI ---
-  { nome: "Latte intero",            cat: "latticini",        unita: "L",     fornitore: "Caseificio Rossi" },
-  { nome: "Panna fresca",            cat: "latticini",        unita: "L",     fornitore: "Caseificio Rossi" },
-  { nome: "Burro",                   cat: "latticini",        unita: "kg",    fornitore: "Caseificio Rossi" },
-  { nome: "Parmigiano Reggiano",     cat: "latticini",        unita: "kg",    fornitore: "Caseificio Rossi" },
-  { nome: "Mozzarella fiordilatte",  cat: "latticini",        unita: "kg",    fornitore: "Caseificio Rossi" },
-  { nome: "Ricotta",                 cat: "latticini",        unita: "kg",    fornitore: "Caseificio Rossi" },
-  { nome: "Uova",                    cat: "latticini",        unita: "pz",    fornitore: "Caseificio Rossi" },
+  // ---------- CESENATICO ----------
+  { nome: "Sedano",                     cat: "frutta e verdura", unita: "testa",     fornitore: "CESENATICO" },
+  { nome: "Carote",                     cat: "frutta e verdura", unita: "busta",     fornitore: "CESENATICO" },
+  { nome: "Cipolle",                    cat: "frutta e verdura", unita: "sacco",     fornitore: "CESENATICO" },
+  { nome: "Finocchi",                   cat: "frutta e verdura", unita: "pz",        fornitore: "CESENATICO" },
+  { nome: "Patate",                     cat: "frutta e verdura", unita: "sacco",     fornitore: "CESENATICO" },
+  { nome: "Cavolfiori",                 cat: "frutta e verdura", unita: "pz",        fornitore: "CESENATICO" },
+  { nome: "Rucola",                     cat: "frutta e verdura", unita: "busta",     fornitore: "CESENATICO" },
+  { nome: "Aglio",                      cat: "frutta e verdura", unita: "testa",     fornitore: "CESENATICO" },
+  { nome: "Funghi pleurotus",           cat: "frutta e verdura", unita: "cassetta",  fornitore: "CESENATICO" },
+  { nome: "Melanzane",                  cat: "frutta e verdura", unita: "kg",        fornitore: "CESENATICO" },
+  { nome: "Zucchine scure",             cat: "frutta e verdura", unita: "kg",        fornitore: "CESENATICO" },
+  { nome: "Pomodorini datterino",       cat: "frutta e verdura", unita: "kg",        fornitore: "CESENATICO" },
+  { nome: "Scarola riccia",             cat: "frutta e verdura", unita: "kg",        fornitore: "CESENATICO" },
+  { nome: "Cavolo viola",               cat: "frutta e verdura", unita: "pz",        fornitore: "CESENATICO" },
+  { nome: "Indivia",                    cat: "frutta e verdura", unita: "confezione",fornitore: "CESENATICO" },
+  { nome: "Limoni",                     cat: "frutta e verdura", unita: "kg",        fornitore: "CESENATICO" },
+  { nome: "Timo",                       cat: "frutta e verdura", unita: "busta",     fornitore: "CESENATICO" },
+  { nome: "Rosmarino",                  cat: "frutta e verdura", unita: "busta",     fornitore: "CESENATICO" },
+  { nome: "Salvia",                     cat: "frutta e verdura", unita: "busta",     fornitore: "CESENATICO" },
+  { nome: "Prezzemolo",                 cat: "frutta e verdura", unita: "mazzo",     fornitore: "CESENATICO" },
+  { nome: "Alloro",                     cat: "frutta e verdura", unita: "busta",     fornitore: "CESENATICO" },
+  { nome: "Basilico",                   cat: "frutta e verdura", unita: "g",         fornitore: "CESENATICO" },
 
-  // --- FRUTTA E VERDURA ---
-  { nome: "Pomodori ramati",         cat: "frutta e verdura", unita: "kg",    fornitore: "Ortofrutta Verdi" },
-  { nome: "Insalata mista",          cat: "frutta e verdura", unita: "cassa", fornitore: "Ortofrutta Verdi" },
-  { nome: "Patate",                  cat: "frutta e verdura", unita: "kg",    fornitore: "Ortofrutta Verdi" },
-  { nome: "Cipolle dorate",          cat: "frutta e verdura", unita: "kg",    fornitore: "Ortofrutta Verdi" },
-  { nome: "Zucchine",                cat: "frutta e verdura", unita: "kg",    fornitore: "Ortofrutta Verdi" },
-  { nome: "Limoni",                  cat: "frutta e verdura", unita: "kg",    fornitore: "Ortofrutta Verdi" },
-  { nome: "Basilico",                cat: "frutta e verdura", unita: "pz",    fornitore: "Ortofrutta Verdi" },
+  // ---------- IGEA ----------
+  { nome: "Erbe campagnole",            cat: "frutta e verdura", unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Acciughe",                   cat: "generici",         unita: "barattolo", fornitore: "IGEA" },
+  { nome: "Tonno fresco",               cat: "carne",            unita: "confezione",fornitore: "IGEA" },
+  { nome: "Sardoncini gelo",            cat: "carne",            unita: "kg",        fornitore: "IGEA" },
+  { nome: "Pesce spada",                cat: "carne",            unita: "fette",     fornitore: "IGEA" },
+  { nome: "Guancia di maiale",          cat: "carne",            unita: "kg",        fornitore: "IGEA" },
+  { nome: "Muscolo di manzo",           cat: "carne",            unita: "kg",        fornitore: "IGEA" },
+  { nome: "Piedini di maiale",          cat: "carne",            unita: "pz",        fornitore: "IGEA" },
+  { nome: "Macinato di maiale",         cat: "carne",            unita: "kg",        fornitore: "IGEA" },
+  { nome: "Macinato di manzo",          cat: "carne",            unita: "kg",        fornitore: "IGEA" },
+  { nome: "Impasto per salsiccia",      cat: "carne",            unita: "kg",        fornitore: "IGEA" },
+  { nome: "Pancetta arrotolata",        cat: "carne",            unita: "kg",        fornitore: "IGEA" },
+  { nome: "Ossa miste",                 cat: "carne",            unita: "kg",        fornitore: "IGEA" },
+  { nome: "Soffritto misto",            cat: "frutta e verdura", unita: "busta",     fornitore: "IGEA" },
+  { nome: "Parmigiano",                 cat: "latticini",        unita: "kg",        fornitore: "IGEA" },
+  { nome: "Latte",                      cat: "latticini",        unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Latte senza lattosio",       cat: "latticini",        unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Panna Vegetop",              cat: "latticini",        unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Uova",                       cat: "latticini",        unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Yogurt greco",               cat: "latticini",        unita: "kg",        fornitore: "IGEA" },
+  { nome: "Yogurt bianco senza zucchero",cat: "latticini",       unita: "kg",        fornitore: "IGEA" },
+  { nome: "Tuorlo",                     cat: "latticini",        unita: "brik",      fornitore: "IGEA" },
+  { nome: "Uova miste (brik)",          cat: "latticini",        unita: "brik",      fornitore: "IGEA" },
+  { nome: "Piadina",                    cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Pane senza glutine",         cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Tagliatelle",                cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Spaghetti alla chitarra",    cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Fusilloni",                  cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Farina 00",                  cat: "generici",         unita: "kg",        fornitore: "IGEA" },
+  { nome: "Farina di riso",             cat: "generici",         unita: "kg",        fornitore: "IGEA" },
+  { nome: "Semola",                     cat: "generici",         unita: "kg",        fornitore: "IGEA" },
+  { nome: "Maizena",                    cat: "generici",         unita: "kg",        fornitore: "IGEA" },
+  { nome: "Olive taggiasche",           cat: "generici",         unita: "barattolo", fornitore: "IGEA" },
+  { nome: "Olive verdi",                cat: "generici",         unita: "barattolo", fornitore: "IGEA" },
+  { nome: "Capperi",                    cat: "generici",         unita: "barattolo", fornitore: "IGEA" },
+  { nome: "Concentrato di pomodoro",    cat: "generici",         unita: "latta",     fornitore: "IGEA" },
+  { nome: "Passata di pomodoro Mutti",  cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Olio EVO",                   cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Olio di semi di girasole",   cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Senape in grani",            cat: "generici",         unita: "barattolo", fornitore: "IGEA" },
+  { nome: "Aceto di vino",              cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Aceto di mele",              cat: "generici",         unita: "bottiglia", fornitore: "IGEA" },
+  { nome: "Mandorle pelate",            cat: "generici",         unita: "busta",     fornitore: "IGEA" },
+  { nome: "Noci",                       cat: "generici",         unita: "busta",     fornitore: "IGEA" },
+  { nome: "Pinoli",                     cat: "generici",         unita: "busta",     fornitore: "IGEA" },
+  { nome: "Cioccolato fondente",        cat: "generici",         unita: "kg",        fornitore: "IGEA" },
+  { nome: "Zucchero",                   cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Savoiardi",                  cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Vino rosso",                 cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Vino bianco",                cat: "generici",         unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Sale fino",                  cat: "generici",         unita: "confezione",fornitore: "IGEA" },
+  { nome: "Sale grosso",                cat: "generici",         unita: "confezione",fornitore: "IGEA" },
+  { nome: "Lavapavimenti Benhur",       cat: "no food",          unita: "cartone",   fornitore: "IGEA" },
+  { nome: "Lavapiatti Verdello",        cat: "no food",          unita: "tanica",    fornitore: "IGEA" },
+  { nome: "Candeggina",                 cat: "no food",          unita: "L",         fornitore: "IGEA" },
+  { nome: "Carta mani",                 cat: "no food",          unita: "bobina",    fornitore: "IGEA" },
+  { nome: "Carta forno",                cat: "no food",          unita: "rotolo",    fornitore: "IGEA" },
+  { nome: "Pellicola",                  cat: "no food",          unita: "rotolo",    fornitore: "IGEA" },
+  { nome: "Alluminio",                  cat: "no food",          unita: "rotolo",    fornitore: "IGEA" },
+  { nome: "Sale pastiglie lavastoviglie",cat: "no food",         unita: "sacco",     fornitore: "IGEA" },
 
-  // --- CARNE ---
-  { nome: "Manzo (macinato)",        cat: "carne",            unita: "kg",    fornitore: "Macelleria Bianchi" },
-  { nome: "Guanciale",               cat: "carne",            unita: "kg",    fornitore: "Macelleria Bianchi" },
-  { nome: "Petto di pollo",          cat: "carne",            unita: "kg",    fornitore: "Macelleria Bianchi" },
-  { nome: "Salsiccia",               cat: "carne",            unita: "kg",    fornitore: "Macelleria Bianchi" },
-  { nome: "Prosciutto crudo",        cat: "carne",            unita: "kg",    fornitore: "Salumeria Neri" },
+  // ---------- VALSANA ----------
+  { nome: "Pancetta Giovanna",          cat: "carne",            unita: "kg",        fornitore: "VALSANA" },
+  { nome: "Camembert",                  cat: "latticini",        unita: "pz",        fornitore: "VALSANA" },
+  { nome: "Burro salato",               cat: "latticini",        unita: "kg",        fornitore: "VALSANA" },
 
-  // --- NO FOOD ---
-  { nome: "Tovaglioli carta",        cat: "no food",          unita: "conf",  fornitore: "Forniture Max" },
-  { nome: "Carta forno",            cat: "no food",          unita: "rotolo",fornitore: "Forniture Max" },
-  { nome: "Guanti monouso",          cat: "no food",          unita: "conf",  fornitore: "Forniture Max" },
-  { nome: "Detersivo piatti",        cat: "no food",          unita: "L",     fornitore: "Forniture Max" },
-  { nome: "Sacchi spazzatura",       cat: "no food",          unita: "conf",  fornitore: "Forniture Max" },
+  // ---------- PAOLINO ----------
+  { nome: "Salame",                     cat: "carne",            unita: "kg",        fornitore: "PAOLINO" },
+  { nome: "Coppa",                      cat: "carne",            unita: "kg",        fornitore: "PAOLINO" },
+  { nome: "Prosciutto crudo",           cat: "carne",            unita: "kg",        fornitore: "PAOLINO" },
 
-  // --- GENERICI ---
-  { nome: "Farina 00",               cat: "generici",         unita: "kg",    fornitore: "Alimentari Grossi" },
-  { nome: "Olio EVO",                cat: "generici",         unita: "L",     fornitore: "Alimentari Grossi" },
-  { nome: "Sale fino",               cat: "generici",         unita: "kg",    fornitore: "Alimentari Grossi" },
-  { nome: "Pasta secca",             cat: "generici",         unita: "kg",    fornitore: "Alimentari Grossi" },
-  { nome: "Passata di pomodoro",     cat: "generici",         unita: "pz",    fornitore: "Alimentari Grossi" },
-  { nome: "Zucchero",                cat: "generici",         unita: "kg",    fornitore: "Alimentari Grossi" },
+  // ---------- MST ----------
+  { nome: "Grana grattugiato",          cat: "latticini",        unita: "busta",     fornitore: "MST" },
+  { nome: "Squacquerone",               cat: "latticini",        unita: "kg",        fornitore: "MST" },
+  { nome: "Mascarpone",                 cat: "latticini",        unita: "kg",        fornitore: "MST" },
+  { nome: "Pecorino Scoparolo",         cat: "latticini",        unita: "kg",        fornitore: "MST" },
+  { nome: "Provolone",                  cat: "latticini",        unita: "kg",        fornitore: "MST" },
+  { nome: "Burro",                      cat: "latticini",        unita: "kg",        fornitore: "MST" },
+  { nome: "Panna fresca",               cat: "latticini",        unita: "brik",      fornitore: "MST" },
+  { nome: "Fichi caramellati",          cat: "generici",         unita: "secchio",   fornitore: "MST" },
+
+  // ---------- ARCA ----------
+  { nome: "Miele",                      cat: "generici",         unita: "cartone",   fornitore: "ARCA" },
+  { nome: "Pasta secca",                cat: "generici",         unita: "kg",        fornitore: "ARCA" },
+  { nome: "Aceto balsamico",            cat: "generici",         unita: "bottiglia", fornitore: "ARCA" },
+  { nome: "Guanti Nitrile M",           cat: "no food",          unita: "confezione",fornitore: "ARCA" },
+  { nome: "Guanti Nitrile L",           cat: "no food",          unita: "confezione",fornitore: "ARCA" },
+  { nome: "Stracci colorati",           cat: "no food",          unita: "confezione",fornitore: "ARCA" },
+  { nome: "Tovagliolini bordeaux",      cat: "no food",          unita: "cartone",   fornitore: "ARCA" },
+  { nome: "Buste sottovuoto",           cat: "no food",          unita: "confezione",fornitore: "ARCA" },
+  { nome: "Sacchi neri",                cat: "no food",          unita: "cartone",   fornitore: "ARCA" },
 ];
 
-/* Nome ristorante usato nell'intestazione dei messaggi */
 const RISTORANTE = "Osteria Fondo";
 const STORAGE_KEY = "of_ordini_cucina_v1";
 
 /* ============================================================ */
 
-// id stabile per prodotto (indice nel catalogo)
 CATALOGO.forEach((p, i) => p.id = i);
 
 const state = {
   q: "",
-  cat: "tutte",
-  qty: {},        // id -> quantità (numero)
+  view: "categoria",   // "categoria" | "fornitore"
+  grp: "tutte",        // gruppo selezionato nei chip
+  qty: {},
 };
 
-// carica quantità salvate
 try {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
   if (saved && typeof saved === "object") state.qty = saved.qty || {};
@@ -321,10 +377,19 @@ function setQty(id, val) {
   val = Math.max(0, Math.round(val * 100) / 100);
   if (val === 0) delete state.qty[id]; else state.qty[id] = val;
   persist();
-  updateRow(id);
+  updateRowVisual(id);
+  updateCounts();
   updateSummary();
 }
 function bump(id, delta) { setQty(id, getQty(id) + delta); }
+
+function groupField() { return state.view === "fornitore" ? "fornitore" : "cat"; }
+function otherField() { return state.view === "fornitore" ? "cat" : "fornitore"; }
+function groupOrder() { return state.view === "fornitore" ? FORNITORI : CATEGORIE; }
+function visibleGroups() {
+  const f = groupField();
+  return groupOrder().filter(g => CATALOGO.some(p => p[f] === g));
+}
 
 function matchesSearch(p) {
   const q = state.q.trim().toLowerCase();
@@ -332,48 +397,54 @@ function matchesSearch(p) {
   return p.nome.toLowerCase().includes(q) || (p.fornitore || "").toLowerCase().includes(q);
 }
 
-function visibleCats() {
-  // categorie nell'ordine definito, solo quelle presenti nel catalogo
-  return CATEGORIE.filter(c => CATALOGO.some(p => p.cat === c));
-}
-
-function renderChips() {
-  const chips = document.getElementById("chips");
-  const cats = visibleCats();
-  const parts = [`<button class="chip ${state.cat==='tutte'?'on':''}" onclick="setCat('tutte')">Tutte</button>`];
-  cats.forEach(c => {
-    const n = CATALOGO.filter(p => p.cat === c && getQty(p.id) > 0).length;
-    parts.push(`<button class="chip ${state.cat===c?'on':''}" onclick="setCat('${c}')">${cap(c)}${n?`<span class="n">${n}</span>`:''}</button>`);
-  });
-  chips.innerHTML = parts.join("");
-}
-
-function setCat(c) {
-  state.cat = c;
+function setView(v) {
+  if (state.view === v) return;
+  state.view = v;
+  state.grp = "tutte";
+  document.getElementById("seg-cat").classList.toggle("on", v === "categoria");
+  document.getElementById("seg-forn").classList.toggle("on", v === "fornitore");
   render();
-  if (c !== "tutte") {
-    const el = document.getElementById("cat-" + slug(c));
+  window.scrollTo({ top: 0 });
+}
+
+function setGrp(g) {
+  state.grp = g;
+  render();
+  if (g !== "tutte") {
+    const el = document.getElementById("grp-" + slug(g));
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   } else {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 }
 
+function renderChips() {
+  const box = document.getElementById("chips");
+  const f = groupField();
+  const parts = [`<button class="chip ${state.grp==='tutte'?'on':''}" onclick="setGrp('tutte')">Tutte</button>`];
+  visibleGroups().forEach(g => {
+    const n = CATALOGO.filter(p => p[f] === g && getQty(p.id) > 0).length;
+    parts.push(`<button class="chip ${state.grp===g?'on':''}" onclick="setGrp('${g.replace(/'/g,"\\'")}')">${cap(g)}${n?`<span class="n">${n}</span>`:''}</button>`);
+  });
+  box.innerHTML = parts.join("");
+}
+
 function render() {
   renderChips();
   const list = document.getElementById("list");
-  const cats = visibleCats().filter(c => state.cat === "tutte" || state.cat === c);
+  const f = groupField();
+  const groups = visibleGroups().filter(g => state.grp === "tutte" || state.grp === g);
   let html = "";
-  let anyVisible = false;
+  let any = false;
 
-  cats.forEach(c => {
-    const prods = CATALOGO.filter(p => p.cat === c && matchesSearch(p));
+  groups.forEach(g => {
+    const prods = CATALOGO.filter(p => p[f] === g && matchesSearch(p));
     if (!prods.length) return;
-    anyVisible = true;
+    any = true;
     const nSel = prods.filter(p => getQty(p.id) > 0).length;
-    html += `<section class="cat" id="cat-${slug(c)}">
-      <div class="cat-head">
-        <h2>${cap(c)}</h2>
+    html += `<section class="grp" id="grp-${slug(g)}" data-group="${esc(g)}">
+      <div class="grp-head">
+        <h2>${cap(g)}</h2>
         ${nSel?`<span class="count">${nSel} da ordinare</span>`:''}
         <span class="line"></span>
       </div>`;
@@ -381,21 +452,22 @@ function render() {
     html += `</section>`;
   });
 
-  list.innerHTML = anyVisible ? html : `<div class="empty">Nessun prodotto trovato.</div>`;
+  list.innerHTML = any ? html : `<div class="empty">Nessun prodotto trovato.</div>`;
   updateSummary();
 }
 
 function rowHTML(p) {
   const q = getQty(p.id);
+  const sub = state.view === "fornitore" ? cap(p.cat) : p.fornitore;
   return `<div class="row ${q>0?'active':''}" id="row-${p.id}">
     <div class="info">
       <div class="name">${esc(p.nome)}</div>
-      <div class="meta">${esc(p.unita)}<span class="sup">${esc(p.fornitore||'—')}</span></div>
+      <div class="meta">${esc(p.unita)}<span class="sub">${esc(sub||'—')}</span></div>
     </div>
     <div class="stepper ${q>0?'filled':''}">
       <button class="minus" onclick="bump(${p.id},-1)" aria-label="meno">−</button>
-      <input type="number" inputmode="decimal" min="0" step="1" value="${q||''}" placeholder="0"
-        onchange="setQty(${p.id}, parseFloat(this.value)||0)"
+      <input type="number" inputmode="decimal" min="0" step="any" value="${q||''}" placeholder="0"
+        onchange="setQty(${p.id}, parseFloat((this.value||'').replace(',','.'))||0)"
         onfocus="this.select()" />
       <button class="plus" onclick="bump(${p.id},1)" aria-label="più">+</button>
       <span class="unit">${esc(p.unita)}</span>
@@ -403,7 +475,7 @@ function rowHTML(p) {
   </div>`;
 }
 
-function updateRow(id) {
+function updateRowVisual(id) {
   const row = document.getElementById("row-" + id);
   if (!row) return;
   const q = getQty(id);
@@ -412,25 +484,29 @@ function updateRow(id) {
   stepper.classList.toggle("filled", q > 0);
   const input = stepper.querySelector("input");
   if (document.activeElement !== input) input.value = q || "";
-  renderChips();
-  // aggiorna contatore categoria
-  const p = CATALOGO[id];
-  const sec = document.getElementById("cat-" + slug(p.cat));
-  if (sec) {
-    const prods = CATALOGO.filter(x => x.cat === p.cat && matchesSearch(x));
-    const nSel = prods.filter(x => getQty(x.id) > 0).length;
-    const badge = sec.querySelector(".cat-head .count");
-    if (badge) badge.textContent = nSel ? `${nSel} da ordinare` : "";
-    else if (nSel) {
-      const h = sec.querySelector(".cat-head h2");
-      h.insertAdjacentHTML("afterend", `<span class="count">${nSel} da ordinare</span>`);
-    }
-  }
 }
 
-function selectedItems() {
-  return CATALOGO.filter(p => getQty(p.id) > 0);
+function updateCounts() {
+  renderChips();
+  const f = groupField();
+  document.querySelectorAll(".grp").forEach(sec => {
+    const g = sec.dataset.group;
+    const prods = CATALOGO.filter(p => p[f] === g && matchesSearch(p));
+    const nSel = prods.filter(p => getQty(p.id) > 0).length;
+    let badge = sec.querySelector(".grp-head .count");
+    if (nSel) {
+      if (!badge) {
+        sec.querySelector(".grp-head h2").insertAdjacentHTML("afterend", `<span class="count"></span>`);
+        badge = sec.querySelector(".grp-head .count");
+      }
+      badge.textContent = `${nSel} da ordinare`;
+    } else if (badge) {
+      badge.remove();
+    }
+  });
 }
+
+function selectedItems() { return CATALOGO.filter(p => getQty(p.id) > 0); }
 
 function updateSummary() {
   const items = selectedItems();
@@ -443,22 +519,21 @@ function updateSummary() {
   document.getElementById("genBtn").disabled = n === 0;
 }
 
-/* ---- Generazione ordini per fornitore ---- */
-function fmtQty(v) {
-  return Number.isInteger(v) ? String(v) : String(v).replace(".", ",");
-}
+function fmtQty(v) { return Number.isInteger(v) ? String(v) : String(v).replace(".", ","); }
 
 function buildMessages() {
   const items = selectedItems();
   const groups = {};
-  items.forEach(p => {
-    const f = p.fornitore || "Senza fornitore";
-    (groups[f] = groups[f] || []).push(p);
-  });
+  items.forEach(p => { const f = p.fornitore || "Senza fornitore"; (groups[f] = groups[f] || []).push(p); });
   const oggi = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
-  return Object.keys(groups).sort((a,b)=>a.localeCompare(b,'it')).map(f => {
+  // ordina i fornitori secondo FORNITORI, poi eventuali extra in coda
+  const ordered = Object.keys(groups).sort((a, b) => {
+    const ia = FORNITORI.indexOf(a), ib = FORNITORI.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b, "it");
+  });
+  return ordered.map(f => {
     const righe = groups[f]
-      .sort((a,b)=>a.nome.localeCompare(b.nome,'it'))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "it"))
       .map(p => `• ${p.nome}: ${fmtQty(getQty(p.id))} ${p.unita}`)
       .join("\n");
     const testo = `${RISTORANTE} — Ordine ${oggi}\n\n${righe}\n\nGrazie!`;
@@ -489,40 +564,28 @@ function chiudiOrdini() {
   document.getElementById("overlay").classList.remove("open");
   document.body.style.overflow = "";
 }
-document.getElementById("overlay").addEventListener("click", e => {
-  if (e.target.id === "overlay") chiudiOrdini();
-});
+document.getElementById("overlay").addEventListener("click", e => { if (e.target.id === "overlay") chiudiOrdini(); });
 
 async function copia(i, btn) {
   const ta = document.getElementById("ta-" + i);
-  const txt = ta.value;
-  try {
-    await navigator.clipboard.writeText(txt);
-  } catch (e) {
-    ta.focus(); ta.select();
-    try { document.execCommand("copy"); } catch (e2) {}
-  }
+  try { await navigator.clipboard.writeText(ta.value); }
+  catch (e) { ta.focus(); ta.select(); try { document.execCommand("copy"); } catch (e2) {} }
   const old = btn.textContent;
-  btn.textContent = "Copiato ✓";
-  btn.classList.add("done");
+  btn.textContent = "Copiato ✓"; btn.classList.add("done");
   setTimeout(() => { btn.textContent = old; btn.classList.remove("done"); }, 1600);
 }
 
 function whatsapp(i) {
   const ta = document.getElementById("ta-" + i);
-  const url = "https://wa.me/?text=" + encodeURIComponent(ta.value);
-  window.open(url, "_blank");
+  window.open("https://wa.me/?text=" + encodeURIComponent(ta.value), "_blank");
 }
 
 function nuovaSerata() {
   if (!selectedItems().length || confirm("Azzerare tutte le quantità e iniziare una nuova serata?")) {
-    state.qty = {};
-    persist();
-    render();
+    state.qty = {}; persist(); render();
   }
 }
 
-/* utils */
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 function slug(s) { return s.replace(/[^a-z0-9]+/gi, "-").toLowerCase(); }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c])); }
