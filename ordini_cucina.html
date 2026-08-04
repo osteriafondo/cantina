@@ -4,9 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>Ordini Cucina — Osteria Fondo</title>
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
-<link rel="shortcut icon" href="favicon-32.png" />
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IkNlc3RlbGxvIGRlbGxhIHNwZXNhIj4KICA8cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjI0IiBmaWxsPSIjN0IxQzJFIi8+CiAgPCEtLSBtYW5pY28gLS0+CiAgPHBhdGggZD0iTTM3IDQ4IGExMyAxMyAwIDAgMSAyNiAwIiBmaWxsPSJub25lIiBzdHJva2U9IiNGN0Y1RjAiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPCEtLSBjb3JwbyBkZWwgY2VzdGVsbG8gLS0+CiAgPHBhdGggZD0iTTI0IDUwIEg3NiBMNjkuNSA3OCBhNCA0IDAgMCAxIC0zLjkgMy4xIEgzNC40IGE0IDQgMCAwIDEgLTMuOSAtMy4xIFoiIGZpbGw9IiNGN0Y1RjAiLz4KICA8IS0tIGZlc3N1cmUgLS0+CiAgPGcgc3Ryb2tlPSIjN0IxQzJFIiBzdHJva2Utd2lkdGg9IjMuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj4KICAgIDxsaW5lIHgxPSI0MCIgeTE9IjU3IiB4Mj0iNDIuNSIgeTI9Ijc0Ii8+CiAgICA8bGluZSB4MT0iNTAiIHkxPSI1NyIgeDI9IjUwIiB5Mj0iNzQiLz4KICAgIDxsaW5lIHgxPSI2MCIgeTE9IjU3IiB4Mj0iNTcuNSIgeTI9Ijc0Ii8+CiAgPC9nPgo8L3N2Zz4K" />
+<link rel="icon" type="image/svg+xml" href="carrello.svg" />
+<link rel="apple-touch-icon" href="carrello.svg" />
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Ordini OF"/>
@@ -156,10 +156,15 @@
   .overlay { position: fixed; inset: 0; z-index: 200; background: rgba(26,23,20,0.45); display: none; align-items: flex-end; justify-content: center; }
   .overlay.open { display: flex; }
   .sheet { background: var(--bg); width: 100%; max-width: 640px; max-height: 92vh; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; overflow: hidden; }
-  .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 1rem 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
-  .sheet-head h2 { font-size: 16px; font-weight: 700; }
-  .sheet-head .close { background: none; border: 0; font-size: 26px; line-height: 1; color: var(--muted); cursor: pointer; }
-  .sheet-body { overflow-y: auto; padding: 12px 1rem 24px; }
+  .sheet-head { display: flex; align-items: center; gap: 10px; padding: 14px 1rem; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .sheet-head h2 { font-size: 16px; font-weight: 700; flex: 1; text-align: center; }
+  .sheet-head .back { background: none; border: 0; color: var(--accent); font-size: 15px; font-weight: 600; cursor: pointer; padding: 4px 2px; white-space: nowrap; }
+  .sheet-head .back:active { opacity: 0.6; }
+  .sheet-head .close { background: none; border: 0; font-size: 26px; line-height: 1; color: var(--muted); cursor: pointer; width: 44px; text-align: right; }
+  .sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px 1rem 20px; }
+  .sheet-foot { padding: 12px 1rem; padding-bottom: max(12px, env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); }
+  .sheet-foot .back-full { width: 100%; padding: 13px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 15px; font-weight: 600; border-radius: var(--radius); cursor: pointer; }
+  .sheet-foot .back-full:active { background: var(--border); }
 
   .order-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
   .order-card .oc-head { display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; background: #FCF7F3; border-bottom: 1px solid var(--border); }
@@ -208,10 +213,14 @@
 <div class="overlay" id="overlay">
   <div class="sheet">
     <div class="sheet-head">
+      <button class="back" onclick="chiudiOrdini()">‹ Lista</button>
       <h2>Ordini da inviare</h2>
-      <button class="close" onclick="chiudiOrdini()">&times;</button>
+      <button class="close" onclick="chiudiOrdini()" aria-label="Chiudi">&times;</button>
     </div>
     <div class="sheet-body" id="orders"></div>
+    <div class="sheet-foot">
+      <button class="back-full" onclick="chiudiOrdini()">← Torna alla lista prodotti</button>
+    </div>
   </div>
 </div>
 

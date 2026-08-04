@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Cestello della spesa">
+  <rect width="100" height="100" rx="24" fill="#7B1C2E"/>
+  <!-- manico -->
+  <path d="M37 48 a13 13 0 0 1 26 0" fill="none" stroke="#F7F5F0" stroke-width="6" stroke-linecap="round"/>
+  <!-- corpo del cestello -->
+  <path d="M24 50 H76 L69.5 78 a4 4 0 0 1 -3.9 3.1 H34.4 a4 4 0 0 1 -3.9 -3.1 Z" fill="#F7F5F0"/>
+  <!-- fessure -->
+  <g stroke="#7B1C2E" stroke-width="3.8" stroke-linecap="round">
+    <line x1="40" y1="57" x2="42.5" y2="74"/>
+    <line x1="50" y1="57" x2="50" y2="74"/>
+    <line x1="60" y1="57" x2="57.5" y2="74"/>
+  </g>
+</svg>
