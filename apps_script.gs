@@ -161,15 +161,31 @@ function generaAdj(nome, produttore, vitigno) {
 function analizzaBolla(ss, imageBase64, mimeType) {
   // Elenco dei vini gia in inventario (anche a giacenza 0), per far riconoscere
   // all'AI i duplicati ed evitare che lo stesso vino compaia due volte.
-  var inventario = leggiTutti(ss);
+  // Leggo qui i fogli anche per: (a) il prezzo d'acquisto attuale di ogni vino,
+  // per l'alert quando la bolla ha un prezzo piu alto; (b) il ricarico medio,
+  // per suggerire un prezzo di carta sui vini nuovi. Questi dati NON passano
+  // dall'endpoint pubblico "leggi": restano nell'azione protetta analizzaBolla.
   var elenco = [];
+  var prezziAcquisto = {};        // "categoria|nomelower" -> prezzo d'acquisto attuale
+  var sommaRicarico = 0, contaRicarico = 0;
   CATEGORIE.forEach(function(cat) {
     var key = cat.toLowerCase();
-    (inventario[key] || []).forEach(function(v) {
-      elenco.push('- categoria "' + key + '" | nome "' + v.nome + '"' +
-        (v.produttore ? ' | produttore "' + v.produttore + '"' : ''));
-    });
+    var sheet = ss.getSheetByName(cat);
+    if (!sheet) return;
+    var rows = sheet.getDataRange().getValues();
+    for (var i = 1; i < rows.length; i++) {
+      var nome = rows[i][1];
+      if (!nome || nome.toString().trim() === '') continue;
+      var produttore = rows[i][2] ? rows[i][2].toString().trim() : '';
+      var acq = parseFloat(rows[i][5]) || 0;   // colonna F = acquisto
+      var vend = parseFloat(rows[i][6]) || 0;  // colonna G = vendita
+      prezziAcquisto[key + '|' + nome.toString().trim().toLowerCase()] = acq;
+      if (acq > 0 && vend > 0) { sommaRicarico += vend / acq; contaRicarico++; }
+      elenco.push('- categoria "' + key + '" | nome "' + nome.toString().trim() + '"' +
+        (produttore ? ' | produttore "' + produttore + '"' : ''));
+    }
   });
+  var ricaricoMedio = contaRicarico ? arrotonda(sommaRicarico / contaRicarico) : 0;
   var testoInventario = elenco.length
     ? elenco.join('\n')
     : '(inventario vuoto)';
@@ -196,7 +212,24 @@ function analizzaBolla(ss, imageBase64, mimeType) {
   });
   var result = JSON.parse(response.getContentText());
   var clean = result.content[0].text.trim().replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
+  var vini = JSON.parse(clean);
+  if (!Array.isArray(vini)) return vini;
+
+  // Arricchisci i risultati:
+  // - vini gia esistenti: allega il prezzo d'acquisto attuale (per l'alert rincaro)
+  // - vini nuovi: suggerisci un prezzo di carta = prezzo bolla x ricarico medio
+  vini.forEach(function(v) {
+    if (!v) return;
+    if (v.esistente && v.esistente.categoria && v.esistente.nome) {
+      var k = v.esistente.categoria.toString().toLowerCase() + '|' + v.esistente.nome.toString().trim().toLowerCase();
+      v.esistente.acquistoAttuale = prezziAcquisto.hasOwnProperty(k) ? prezziAcquisto[k] : 0;
+    } else {
+      v.ricaricoMedio = ricaricoMedio;
+      var p = parseFloat(v.prezzo) || 0;
+      v.prezzoSuggerito = (ricaricoMedio > 0 && p > 0) ? Math.round(p * ricaricoMedio) : 0;
+    }
+  });
+  return vini;
 }
 
 function generaDescrizioniTutti() {

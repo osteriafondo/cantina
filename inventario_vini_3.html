@@ -523,6 +523,8 @@
   /* ── Bolla: riconoscimento vino già in inventario ─────── */
   .match-badge { font-size: 12px; color: var(--green); background: var(--green-bg); border-radius: 6px; padding: 4px 9px; margin: 8px 0 2px; display: inline-block; }
   .new-badge { font-size: 12px; color: var(--amber); background: var(--amber-bg); border-radius: 6px; padding: 4px 9px; margin: 8px 0 2px; display: inline-block; }
+  .price-alert { font-size: 12px; color: var(--red); background: var(--red-bg); border: 1px solid #F1C7C0; border-radius: 6px; padding: 5px 9px; margin: 6px 0 2px; display: block; font-weight: 500; }
+  .hint-carta { font-size: 10px; color: var(--hint); margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -1370,9 +1372,34 @@ function mostraRisultati() {
 
   list.innerHTML = bollaRisultati.map((v, i) => {
     const catSel = (v.esistente && v.esistente.categoria) ? v.esistente.categoria : v.categoria;
-    const badge = v.esistente
-      ? '<div class="match-badge">✓ Già in inventario' + (v.esistente.nome ? ' — ' + escHtml(v.esistente.nome) : '') + ' · aggiungo alla giacenza</div>'
-      : '<div class="new-badge">Nuovo vino · verrà creato</div>';
+    const prezzoBolla = parseFloat(v.prezzo) || 0;
+    let badge, alert = '', extraFields = '';
+
+    if (v.esistente) {
+      badge = '<div class="match-badge">✓ Già in inventario' + (v.esistente.nome ? ' — ' + escHtml(v.esistente.nome) : '') + ' · aggiungo alla giacenza</div>';
+      const vecchio = parseFloat(v.esistente.acquistoAttuale) || 0;
+      if (prezzoBolla > 0 && vecchio > 0 && prezzoBolla > vecchio) {
+        const perc = Math.round((prezzoBolla - vecchio) / vecchio * 100);
+        alert = `<div class="price-alert">⚠ Prezzo d'acquisto aumentato: da € ${vecchio.toFixed(2)} a € ${prezzoBolla.toFixed(2)} (+${perc}%)</div>`;
+      }
+    } else {
+      badge = '<div class="new-badge">Nuovo vino · verrà creato</div>';
+      const sugg = parseFloat(v.prezzoSuggerito) || 0;
+      const hint = sugg > 0
+        ? `<span class="hint-carta">consigliato € ${sugg}${v.ricaricoMedio ? ' · ricarico medio ' + v.ricaricoMedio + '×' : ''}</span>`
+        : '';
+      extraFields = `
+        <div class="risultato-field">
+          <label>Prezzo acquisto €</label>
+          <input type="number" step="0.01" id="acq-${i}" value="${prezzoBolla || ''}" min="0" />
+        </div>
+        <div class="risultato-field">
+          <label>Prezzo in carta €</label>
+          <input type="number" step="0.01" id="vendita-${i}" value="${sugg || ''}" min="0" />
+          ${hint}
+        </div>`;
+    }
+
     return `
     <div class="risultato-card">
       <div class="risultato-top">
@@ -1387,6 +1414,7 @@ function mostraRisultati() {
         <button class="btn-rimuovi" onclick="rimuoviRisultato(${i})">✕</button>
       </div>
       ${badge}
+      ${alert}
       <div class="risultato-fields">
         <div class="risultato-field">
           <label>Nome</label>
@@ -1400,6 +1428,7 @@ function mostraRisultati() {
           <label>Bottiglie</label>
           <input type="number" id="qty-${i}" value="${v.quantita}" min="1" />
         </div>
+        ${extraFields}
       </div>
     </div>`;
   }).join('');
@@ -1442,7 +1471,13 @@ async function confermaBolla() {
     const now = new Date();
     const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
 
-    const prezzoAcq = bollaRisultati[i].prezzo || 0;
+    // Prezzo d'acquisto: per i nuovi c'e il campo editabile, per gli esistenti
+    // il prezzo letto dalla bolla. Prezzo di carta (vendita): solo per i nuovi.
+    const acqInput = document.getElementById('acq-' + i);
+    const prezzoAcq = acqInput ? (parseFloat(acqInput.value) || 0) : (bollaRisultati[i].prezzo || 0);
+    const vendInput = document.getElementById('vendita-' + i);
+    const prezzoCarta = vendInput ? (parseFloat(vendInput.value) || 0) : 0;
+
     if (esistente) {
       esistente.qty += qty;
       logs.unshift({ t, cat: cerca, nome: esistente.nome, delta: qty, qty: esistente.qty });
@@ -1450,7 +1485,7 @@ async function confermaBolla() {
     } else {
       db[cat].push({ id: Date.now() + i, nome, produttore, vitigno: '', regione: '', qty, soglia: 3, adj: '' });
       logs.unshift({ t, cat, nome, delta: qty, qty });
-      await aggiungiSheetCompleto(cat, nome, produttore, '', '', prezzoAcq, 0, qty, 3);
+      await aggiungiSheetCompleto(cat, nome, produttore, '', '', prezzoAcq, prezzoCarta, qty, 3);
     }
     aggiornati++;
   }
