@@ -179,6 +179,39 @@
   .btn-copy.done { background: var(--green); border-color: var(--green) !important; }
   .btn-wa { background: #25D366; color: #fff; border-color: #25D366 !important; }
   .btn-copy:active, .btn-wa:active { opacity: 0.9; }
+
+  /* azioni header + modalità modifica */
+  header .actions { display: flex; gap: 8px; }
+  header button.edit { background: transparent; border: 1px solid rgba(247,245,240,0.25); color: #F7F5F0; font-size: 12px; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; }
+  header button.edit:active { background: rgba(247,245,240,0.1); }
+  body.editing header button.edit { background: #F7F5F0; color: var(--text); border-color: #F7F5F0; }
+
+  /* select unità nella riga */
+  .stepper .unit-sel { margin-left: 8px; max-width: 96px; font-size: 12px; color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 4px; background: var(--surface); cursor: pointer; }
+  .stepper .unit-sel:focus { outline: none; border-color: var(--text); }
+
+  /* pulsante elimina (solo in modifica) */
+  .row .del { display: none; width: 40px; height: 40px; flex: 0 0 auto; border: 1px solid #F0C9C4; background: #FDF0EE; color: var(--red); border-radius: var(--radius-sm); font-size: 17px; cursor: pointer; align-items: center; justify-content: center; }
+  .row .del:active { background: #F8DEDA; }
+  body.editing .row .stepper { display: none; }
+  body.editing .row .del { display: flex; }
+  body.editing .row { border-style: dashed; }
+
+  /* barra modalità modifica */
+  #editbar { display: none; }
+  body.editing #bar { display: none; }
+  body.editing #editbar { display: flex; }
+  #editbar .restore { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: var(--radius); padding: 12px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  #editbar .restore:disabled { opacity: 0.4; cursor: default; }
+  #editbar .add { flex: 1; background: var(--accent); color: #fff; border: 0; border-radius: var(--radius); padding: 13px 20px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  #editbar .add:active { opacity: 0.9; }
+
+  /* form nuovo prodotto */
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .field input, .field select { width: 100%; border: 1px solid var(--border); background: var(--bg); border-radius: var(--radius-sm); padding: 12px; font-size: 15px; color: var(--text); }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--text); background: var(--surface); }
+  .sheet-foot .save { background: var(--accent); color: #fff; border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -188,7 +221,10 @@
     <h1>Ordini Cucina</h1>
     <span class="sub">Osteria Fondo</span>
   </div>
-  <button class="reset" onclick="nuovaSerata()">Nuova serata</button>
+  <div class="actions">
+    <button class="edit" id="editBtn" onclick="toggleEdit()">Modifica</button>
+    <button class="reset" onclick="nuovaSerata()">Nuova serata</button>
+  </div>
 </header>
 
 <div class="toolbar">
@@ -206,9 +242,14 @@
 
 <main id="list"></main>
 
-<div class="bar">
+<div class="bar" id="bar">
   <div class="summary" id="summary"><b>0</b> prodotti da ordinare</div>
   <button class="generate" id="genBtn" onclick="apriOrdini()" disabled>Genera ordini</button>
+</div>
+
+<div class="bar" id="editbar">
+  <button class="restore" id="restoreBtn" onclick="ripristinaEliminati()">Nessun eliminato</button>
+  <button class="add" onclick="apriAggiungi()">＋ Aggiungi prodotto</button>
 </div>
 
 <div class="overlay" id="overlay">
@@ -221,6 +262,37 @@
     <div class="sheet-body" id="orders"></div>
     <div class="sheet-foot">
       <button class="back-full" onclick="chiudiOrdini()">← Torna alla lista prodotti</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="addOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <button class="back" onclick="chiudiAggiungi()">Annulla</button>
+      <h2>Nuovo prodotto</h2>
+      <span style="width:44px"></span>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <label for="add-nome">Nome prodotto</label>
+        <input id="add-nome" type="text" placeholder="es. Zucchine chiare" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="add-cat">Reparto</label>
+        <select id="add-cat"></select>
+      </div>
+      <div class="field">
+        <label for="add-forn">Fornitore</label>
+        <select id="add-forn" onchange="onAddFornChange(this)"></select>
+      </div>
+      <div class="field">
+        <label for="add-unit">Unità di misura</label>
+        <select id="add-unit" onchange="onAddUnitChange(this)"></select>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      <button class="back-full save" onclick="salvaAggiungi()">Aggiungi prodotto</button>
     </div>
   </div>
 </div>
@@ -360,32 +432,56 @@ const CATALOGO = [
 ];
 
 const RISTORANTE = "Osteria Fondo";
-const STORAGE_KEY = "of_ordini_cucina_v1";
+const STORAGE_KEY = "of_ordini_cucina_v2";
+
+// Unità disponibili nella tendina (l'ultima voce apre l'inserimento libero)
+const UNITA = ["pz","cassetta","cartone","g","kg","L","confezione","busta","sacco","mazzo","barattolo","latta","bottiglia"];
 
 /* ============================================================ */
 
-CATALOGO.forEach((p, i) => p.id = i);
+// id stabile per ogni prodotto del catalogo base
+(function () {
+  const used = {};
+  CATALOGO.forEach(p => {
+    let base = "s-" + slug(p.nome + "-" + p.fornitore), id = base, k = 2;
+    while (used[id]) id = base + "-" + (k++);
+    used[id] = 1; p.id = id;
+  });
+})();
 
-const state = {
-  q: "",
-  view: "categoria",   // "categoria" | "fornitore"
-  grp: "tutte",        // gruppo selezionato nei chip
-  qty: {},
-};
-
+// stato persistito sul dispositivo
+const store = { qty: {}, units: {}, removed: [], custom: [] };
 try {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-  if (saved && typeof saved === "object") state.qty = saved.qty || {};
+  if (saved && typeof saved === "object") {
+    store.qty = saved.qty || {};
+    store.units = saved.units || {};
+    store.removed = Array.isArray(saved.removed) ? saved.removed : [];
+    store.custom = Array.isArray(saved.custom) ? saved.custom : [];
+  }
 } catch (e) {}
 
+const state = { q: "", view: "categoria", grp: "tutte", edit: false };
+
+// catalogo di lavoro = base (senza eliminati) + prodotti aggiunti dall'utente
+let WORK = [];
+function rebuild() {
+  const rm = new Set(store.removed);
+  WORK = CATALOGO.filter(p => !rm.has(p.id)).concat(store.custom);
+}
+rebuild();
+
 function persist() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ qty: state.qty })); } catch (e) {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); } catch (e) {}
 }
 
-function getQty(id) { return state.qty[id] || 0; }
+function unitOf(p) { return store.units[p.id] || p.unita; }
+function byId(id) { return WORK.find(p => p.id === id); }
+
+function getQty(id) { return store.qty[id] || 0; }
 function setQty(id, val) {
   val = Math.max(0, Math.round(val * 100) / 100);
-  if (val === 0) delete state.qty[id]; else state.qty[id] = val;
+  if (val === 0) delete store.qty[id]; else store.qty[id] = val;
   persist();
   updateRowVisual(id);
   updateCounts();
@@ -394,11 +490,13 @@ function setQty(id, val) {
 function bump(id, delta) { setQty(id, getQty(id) + delta); }
 
 function groupField() { return state.view === "fornitore" ? "fornitore" : "cat"; }
-function otherField() { return state.view === "fornitore" ? "cat" : "fornitore"; }
 function groupOrder() { return state.view === "fornitore" ? FORNITORI : CATEGORIE; }
 function visibleGroups() {
   const f = groupField();
-  return groupOrder().filter(g => CATALOGO.some(p => p[f] === g));
+  const present = [...new Set(WORK.map(p => p[f]))];
+  const order = groupOrder().filter(g => present.includes(g));
+  const extra = present.filter(g => !groupOrder().includes(g)).sort((a, b) => a.localeCompare(b, "it"));
+  return order.concat(extra);
 }
 
 function matchesSearch(p) {
@@ -431,58 +529,93 @@ function setGrp(g) {
 function renderChips() {
   const box = document.getElementById("chips");
   const f = groupField();
-  const parts = [`<button class="chip ${state.grp==='tutte'?'on':''}" onclick="setGrp('tutte')">Tutte</button>`];
+  const parts = [`<button class="chip ${state.grp === 'tutte' ? 'on' : ''}" onclick="setGrp('tutte')">Tutte</button>`];
   visibleGroups().forEach(g => {
-    const n = CATALOGO.filter(p => p[f] === g && getQty(p.id) > 0).length;
-    parts.push(`<button class="chip ${state.grp===g?'on':''}" onclick="setGrp('${g.replace(/'/g,"\\'")}')">${cap(g)}${n?`<span class="n">${n}</span>`:''}</button>`);
+    const n = WORK.filter(p => p[f] === g && getQty(p.id) > 0).length;
+    parts.push(`<button class="chip ${state.grp === g ? 'on' : ''}" onclick="setGrp('${g.replace(/'/g, "\\'")}')">${cap(g)}${n ? `<span class="n">${n}</span>` : ''}</button>`);
   });
   box.innerHTML = parts.join("");
 }
 
 function render() {
+  const groupsAll = visibleGroups();
+  if (state.grp !== "tutte" && !groupsAll.includes(state.grp)) state.grp = "tutte";
   renderChips();
+  updateEditBar();
   const list = document.getElementById("list");
   const f = groupField();
-  const groups = visibleGroups().filter(g => state.grp === "tutte" || state.grp === g);
+  const groups = groupsAll.filter(g => state.grp === "tutte" || state.grp === g);
   let html = "";
   let any = false;
 
   groups.forEach(g => {
-    const prods = CATALOGO.filter(p => p[f] === g && matchesSearch(p));
+    const prods = WORK.filter(p => p[f] === g && matchesSearch(p));
     if (!prods.length) return;
     any = true;
     const nSel = prods.filter(p => getQty(p.id) > 0).length;
     html += `<section class="grp" id="grp-${slug(g)}" data-group="${esc(g)}">
       <div class="grp-head">
         <h2>${cap(g)}</h2>
-        ${nSel?`<span class="count">${nSel} da ordinare</span>`:''}
+        ${nSel ? `<span class="count">${nSel} da ordinare</span>` : ''}
         <span class="line"></span>
       </div>`;
     prods.forEach(p => html += rowHTML(p));
     html += `</section>`;
   });
 
-  list.innerHTML = any ? html : `<div class="empty">Nessun prodotto trovato.</div>`;
+  list.innerHTML = any ? html : `<div class="empty">Nessun prodotto${state.q ? " trovato" : ""}.</div>`;
   updateSummary();
 }
 
 function rowHTML(p) {
   const q = getQty(p.id);
   const sub = state.view === "fornitore" ? cap(p.cat) : p.fornitore;
-  return `<div class="row ${q>0?'active':''}" id="row-${p.id}">
+  return `<div class="row ${q > 0 ? 'active' : ''}" id="row-${p.id}">
     <div class="info">
       <div class="name">${esc(p.nome)}</div>
-      <div class="meta">${esc(p.unita)}<span class="sub">${esc(sub||'—')}</span></div>
+      <div class="meta">${esc(sub || '—')}</div>
     </div>
-    <div class="stepper ${q>0?'filled':''}">
-      <button class="minus" onclick="bump(${p.id},-1)" aria-label="meno">−</button>
-      <input type="number" inputmode="decimal" min="0" step="any" value="${q||''}" placeholder="0"
-        onchange="setQty(${p.id}, parseFloat((this.value||'').replace(',','.'))||0)"
+    <div class="stepper ${q > 0 ? 'filled' : ''}">
+      <button class="minus" onclick="bump('${p.id}',-1)" aria-label="meno">−</button>
+      <input type="number" inputmode="decimal" min="0" step="any" value="${q || ''}" placeholder="0"
+        onchange="setQty('${p.id}', parseFloat((this.value||'').replace(',','.'))||0)"
         onfocus="this.select()" />
-      <button class="plus" onclick="bump(${p.id},1)" aria-label="più">+</button>
-      <span class="unit">${esc(p.unita)}</span>
+      <button class="plus" onclick="bump('${p.id}',1)" aria-label="più">+</button>
+      ${unitSelectHTML(p)}
     </div>
+    <button class="del" onclick="removeProduct('${p.id}')" aria-label="Elimina">🗑</button>
   </div>`;
+}
+
+function unitSelectHTML(p) {
+  const cur = unitOf(p);
+  const opts = [];
+  if (!UNITA.includes(cur)) opts.push(cur);
+  UNITA.forEach(u => { if (opts.indexOf(u) < 0) opts.push(u); });
+  const optionsHTML = opts.map(u => `<option value="${esc(u)}" ${u === cur ? 'selected' : ''}>${esc(u)}</option>`).join("")
+    + `<option value="__custom__">altro…</option>`;
+  return `<select class="unit-sel" id="unit-${p.id}" onchange="onUnitChange('${p.id}', this)">${optionsHTML}</select>`;
+}
+
+function onUnitChange(id, sel) {
+  const p = byId(id); if (!p) return;
+  if (sel.value === "__custom__") {
+    const c = prompt("Unità di misura personalizzata:", unitOf(p));
+    if (c && c.trim()) setUnit(id, c.trim());
+    else sel.value = unitOf(p);
+    return;
+  }
+  setUnit(id, sel.value);
+}
+
+function setUnit(id, u) {
+  store.units[id] = u;
+  persist();
+  const row = document.getElementById("row-" + id);
+  if (row) {
+    const sel = row.querySelector(".unit-sel");
+    if (sel) sel.outerHTML = unitSelectHTML(byId(id));
+  }
 }
 
 function updateRowVisual(id) {
@@ -501,7 +634,7 @@ function updateCounts() {
   const f = groupField();
   document.querySelectorAll(".grp").forEach(sec => {
     const g = sec.dataset.group;
-    const prods = CATALOGO.filter(p => p[f] === g && matchesSearch(p));
+    const prods = WORK.filter(p => p[f] === g && matchesSearch(p));
     const nSel = prods.filter(p => getQty(p.id) > 0).length;
     let badge = sec.querySelector(".grp-head .count");
     if (nSel) {
@@ -516,7 +649,7 @@ function updateCounts() {
   });
 }
 
-function selectedItems() { return CATALOGO.filter(p => getQty(p.id) > 0); }
+function selectedItems() { return WORK.filter(p => getQty(p.id) > 0); }
 
 function updateSummary() {
   const items = selectedItems();
@@ -524,7 +657,7 @@ function updateSummary() {
   const sup = new Set(items.map(p => p.fornitore || "—")).size;
   const summary = document.getElementById("summary");
   summary.innerHTML = n
-    ? `<b>${n}</b> prodotti · ${sup} fornitor${sup===1?'e':'i'}`
+    ? `<b>${n}</b> prodotti · ${sup} fornitor${sup === 1 ? 'e' : 'i'}`
     : `<b>0</b> prodotti da ordinare`;
   document.getElementById("genBtn").disabled = n === 0;
 }
@@ -535,16 +668,14 @@ function buildMessages() {
   const items = selectedItems();
   const groups = {};
   items.forEach(p => { const f = p.fornitore || "Senza fornitore"; (groups[f] = groups[f] || []).push(p); });
-  // ordina i fornitori secondo FORNITORI, poi eventuali extra in coda
   const ordered = Object.keys(groups).sort((a, b) => {
     const ia = FORNITORI.indexOf(a), ib = FORNITORI.indexOf(b);
     return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b, "it");
   });
   return ordered.map(f => {
-    // Solo la lista dei prodotti: saluti e dettagli li aggiungono i ragazzi.
     const testo = groups[f]
       .sort((a, b) => a.nome.localeCompare(b.nome, "it"))
-      .map(p => `${p.nome}: ${fmtQty(getQty(p.id))} ${p.unita}`)
+      .map(p => `${p.nome}: ${fmtQty(getQty(p.id))} ${unitOf(p)}`)
       .join("\n");
     return { fornitore: f, count: groups[f].length, testo };
   });
@@ -557,7 +688,7 @@ function apriOrdini() {
     <div class="order-card">
       <div class="oc-head">
         <span class="name">${esc(m.fornitore)}</span>
-        <span class="n">${m.count} prodott${m.count===1?'o':'i'}</span>
+        <span class="n">${m.count} prodott${m.count === 1 ? 'o' : 'i'}</span>
       </div>
       <textarea id="ta-${i}" spellcheck="false">${esc(m.testo)}</textarea>
       <div class="oc-actions">
@@ -574,6 +705,7 @@ function chiudiOrdini() {
   document.body.style.overflow = "";
 }
 document.getElementById("overlay").addEventListener("click", e => { if (e.target.id === "overlay") chiudiOrdini(); });
+document.getElementById("addOverlay").addEventListener("click", e => { if (e.target.id === "addOverlay") chiudiAggiungi(); });
 
 async function copia(i, btn) {
   const ta = document.getElementById("ta-" + i);
@@ -591,13 +723,115 @@ function whatsapp(i) {
 
 function nuovaSerata() {
   if (!selectedItems().length || confirm("Azzerare tutte le quantità e iniziare una nuova serata?")) {
-    state.qty = {}; persist(); render();
+    store.qty = {}; persist(); render();
   }
+}
+
+/* ---------- Modalità modifica: aggiungi / elimina prodotti ---------- */
+function toggleEdit() {
+  state.edit = !state.edit;
+  document.body.classList.toggle("editing", state.edit);
+  document.getElementById("editBtn").textContent = state.edit ? "Fine" : "Modifica";
+  updateEditBar();
+}
+
+function updateEditBar() {
+  const btn = document.getElementById("restoreBtn");
+  if (!btn) return;
+  const n = store.removed.length;
+  btn.textContent = n ? `Ripristina eliminati (${n})` : "Nessun eliminato";
+  btn.disabled = n === 0;
+}
+
+function removeProduct(id) {
+  const p = byId(id); if (!p) return;
+  if (!confirm(`Eliminare "${p.nome}" dalla lista?`)) return;
+  if (String(id).startsWith("c-")) store.custom = store.custom.filter(x => x.id !== id);
+  else if (!store.removed.includes(id)) store.removed.push(id);
+  delete store.qty[id];
+  delete store.units[id];
+  persist(); rebuild(); render();
+}
+
+function ripristinaEliminati() {
+  if (!store.removed.length) return;
+  if (confirm(`Ripristinare ${store.removed.length} prodotti eliminati?`)) {
+    store.removed = []; persist(); rebuild(); render();
+  }
+}
+
+function fornitoriEsistenti() {
+  const set = new Set(FORNITORI);
+  WORK.forEach(p => { if (p.fornitore) set.add(p.fornitore); });
+  return [...set];
+}
+function categorieEsistenti() {
+  const set = new Set(CATEGORIE);
+  WORK.forEach(p => { if (p.cat) set.add(p.cat); });
+  return [...set];
+}
+function fillSelect(sel, values, current) {
+  sel.innerHTML = values.map(v => `<option value="${esc(v)}" ${v === current ? 'selected' : ''}>${esc(cap(v))}</option>`).join("");
+}
+
+function apriAggiungi() {
+  document.getElementById("add-nome").value = "";
+  fillSelect(document.getElementById("add-cat"), categorieEsistenti(),
+    (state.view === "categoria" && state.grp !== "tutte") ? state.grp : CATEGORIE[0]);
+  const fornSel = document.getElementById("add-forn");
+  fillSelect(fornSel, fornitoriEsistenti(),
+    (state.view === "fornitore" && state.grp !== "tutte") ? state.grp : FORNITORI[0]);
+  fornSel.innerHTML += `<option value="__new__">＋ Nuovo fornitore…</option>`;
+  document.getElementById("add-unit").innerHTML =
+    UNITA.map(u => `<option value="${esc(u)}" ${u === 'pz' ? 'selected' : ''}>${esc(u)}</option>`).join("")
+    + `<option value="__custom__">altro…</option>`;
+  document.getElementById("addOverlay").classList.add("open");
+  document.body.style.overflow = "hidden";
+  setTimeout(() => document.getElementById("add-nome").focus(), 60);
+}
+
+function chiudiAggiungi() {
+  document.getElementById("addOverlay").classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function onAddFornChange(sel) {
+  if (sel.value !== "__new__") return;
+  const c = prompt("Nome del nuovo fornitore:");
+  if (c && c.trim()) {
+    const opt = document.createElement("option");
+    opt.value = c.trim(); opt.textContent = c.trim(); opt.selected = true;
+    sel.insertBefore(opt, sel.lastElementChild);
+  } else sel.selectedIndex = 0;
+}
+function onAddUnitChange(sel) {
+  if (sel.value !== "__custom__") return;
+  const c = prompt("Unità di misura personalizzata:");
+  if (c && c.trim()) {
+    const opt = document.createElement("option");
+    opt.value = c.trim(); opt.textContent = c.trim(); opt.selected = true;
+    sel.insertBefore(opt, sel.lastElementChild);
+  } else sel.selectedIndex = 0;
+}
+
+function salvaAggiungi() {
+  const nome = document.getElementById("add-nome").value.trim();
+  if (!nome) { alert("Scrivi il nome del prodotto."); return; }
+  const cat = document.getElementById("add-cat").value;
+  let forn = document.getElementById("add-forn").value;
+  let unita = document.getElementById("add-unit").value;
+  if (forn === "__new__") forn = FORNITORI[0];
+  if (unita === "__custom__") unita = "pz";
+  const id = "c-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  store.custom.push({ id, nome, cat, unita, fornitore: forn });
+  persist(); rebuild();
+  chiudiAggiungi();
+  setGrp(state.view === "fornitore" ? forn : cat);
 }
 
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 function slug(s) { return s.replace(/[^a-z0-9]+/gi, "-").toLowerCase(); }
-function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c])); }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c])); }
 
 render();
 </script>
