@@ -1344,6 +1344,46 @@ function gestisciFile(input) {
   analizzaBolla(file);
 }
 
+function fileInBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// Prepara il file per l'invio. Le foto vengono ridimensionate (max ~1600px) e
+// ricompresse in JPEG: una foto da telefono pesa diversi MB e, spedita in
+// base64 nel corpo della richiesta, supera il limite delle POST di Apps Script
+// (che risponde 404). A 1600px il testo della bolla resta leggibile ma il peso
+// crolla. I PDF e gli altri file vengono inviati così come sono.
+async function preparaFileBolla(file) {
+  const originale = async () => ({ base64: await fileInBase64(file), mimeType: file.type || 'application/octet-stream' });
+  if (!file.type || !file.type.startsWith('image/')) return originale();
+  try {
+    const dataUrl = await new Promise((res, rej) => {
+      const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file);
+    });
+    const img = await new Promise((res, rej) => {
+      const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = dataUrl;
+    });
+    const MAX = 1600;
+    let w = img.naturalWidth, h = img.naturalHeight;
+    if (Math.max(w, h) > MAX) {
+      const scala = MAX / Math.max(w, h);
+      w = Math.round(w * scala); h = Math.round(h * scala);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    const jpeg = canvas.toDataURL('image/jpeg', 0.7);
+    return { base64: jpeg.split(',')[1], mimeType: 'image/jpeg' };
+  } catch (e) {
+    return originale();   // se la compressione fallisce (es. formato non gestito), invia l'originale
+  }
+}
+
 async function analizzaBolla(file) {
   const status = document.getElementById('bolla-status');
   status.style.display = 'flex';
@@ -1352,15 +1392,10 @@ async function analizzaBolla(file) {
   document.getElementById('risultati-wrap').style.display = 'none';
 
   try {
-    // Converti file in base64
-    const base64 = await new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result.split(',')[1]);
-      r.onerror = rej;
-      r.readAsDataURL(file);
-    });
-
-    const mimeType = file.type || 'image/jpeg';
+    // Ridimensiona/comprimi (le foto) e ottieni il base64
+    const prep = await preparaFileBolla(file);
+    const base64 = prep.base64;
+    const mimeType = prep.mimeType;
 
     // Invia ad Apps Script che chiama Anthropic in modo sicuro
     const urlParams = new URLSearchParams({
