@@ -208,11 +208,22 @@ function analizzaBolla(ss, imageBase64, mimeType) {
   var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
     method: 'post',
     headers: { 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    payload: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, messages: [{ role: 'user', content: [contentItem, { type: 'text', text: prompt }] }] })
+    payload: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 8000, messages: [{ role: 'user', content: [contentItem, { type: 'text', text: prompt }] }] })
   });
   var result = JSON.parse(response.getContentText());
-  var clean = result.content[0].text.trim().replace(/```json|```/g, '').trim();
-  var vini = JSON.parse(clean);
+  if (result.error) return { errore: 'AI: ' + (result.error.message || 'errore sconosciuto') };
+  var testoAI = (result.content && result.content[0] && result.content[0].text) ? result.content[0].text : '';
+  var clean = testoAI.trim().replace(/```json|```/g, '').trim();
+  var vini;
+  try {
+    vini = JSON.parse(clean);
+  } catch (errParse) {
+    // Risposta AI non valida: quasi sempre perche' troppo lunga e troncata.
+    if (result.stop_reason === 'max_tokens') {
+      return { errore: 'La bolla ha troppe righe per una sola analisi. Prova a fotografarla in due scatti (meta e meta) e caricali uno per volta.' };
+    }
+    return { errore: 'Non sono riuscito a leggere i vini dalla bolla. Riprova con una foto piu nitida e ben inquadrata.' };
+  }
   if (!Array.isArray(vini)) return vini;
 
   // Arricchisci i risultati:
