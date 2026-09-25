@@ -295,12 +295,39 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+// Lettura dal backend con tentativi automatici: Google Apps Script ha spesso
+// micro-interruzioni (cold start, 500/502, redirect di /exec). Riprovando alcune
+// volte con attesa progressiva, il cliente non vede errori per un semplice intoppo.
+async function backendFetch(url, tentativi, timeout) {
+  tentativi = tentativi || 4;
+  timeout = timeout || 30000;
+  let ultimoErrore;
+  for (let i = 0; i < tentativi; i++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(function(){ ctrl.abort(); }, timeout);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal, redirect: 'follow' });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const testo = await res.text();
+      try { return JSON.parse(testo); }
+      catch (e) { throw new Error('Risposta non valida'); }
+    } catch (e) {
+      clearTimeout(timer);
+      ultimoErrore = e;
+      if (i < tentativi - 1) {
+        await new Promise(function(r){ setTimeout(r, 700 * Math.pow(2, i)); });  // 0.7s, 1.4s, 2.8s
+      }
+    }
+  }
+  throw ultimoErrore;
+}
+
 async function carica() {
   el('loading').classList.remove('hidden');
   el('content').innerHTML = '';
   try {
-    const res = await fetch(URL + '?action=leggi');
-    const d = await res.json();
+    const d = await backendFetch(URL + '?action=leggi');
     if (d.errore) throw new Error(d.errore);
     dati = {
       bianchi: d.bianchi || [],

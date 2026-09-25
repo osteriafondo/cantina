@@ -720,8 +720,7 @@ async function tentaLogin() {
   if (!pw) return;
   btn.disabled = true; btn.textContent = 'Verifica…'; err.style.display = 'none';
   try {
-    const res = await fetch(URL + '?action=verificaToken&token=' + encodeURIComponent(pw));
-    const r = await res.json();
+    const r = await backendFetch(URL + '?action=verificaToken&token=' + encodeURIComponent(pw));
     if (r && r.ok) {
       localStorage.setItem(TOKEN_KEY, pw);
       document.getElementById('login-overlay').style.display = 'none';
@@ -760,12 +759,46 @@ function setSyncStatus(stato, msg) {
   txt.textContent = msg;
 }
 
+// ── Chiamata al backend con tentativi automatici ────────────────────────────────
+// Google Apps Script ha micro-interruzioni frequenti (cold start dopo inattività,
+// errori 500/502 temporanei, il redirect di /exec che ogni tanto non risponde).
+// Con un solo tentativo ogni intoppo diventa subito un errore. Qui riproviamo
+// alcune volte con attesa progressiva e un timeout, così gli errori transitori
+// si risolvono da soli senza mostrare nulla all'utente.
+async function backendFetch(url, opts, tentativi, timeout) {
+  tentativi = tentativi || 3;
+  timeout = timeout || 30000;
+  let ultimoErrore;
+  for (let i = 0; i < tentativi; i++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(function(){ ctrl.abort(); }, timeout);
+    try {
+      const res = await fetch(url, Object.assign({ signal: ctrl.signal, redirect: 'follow' }, opts || {}));
+      clearTimeout(timer);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const testo = await res.text();
+      try {
+        return JSON.parse(testo);
+      } catch (e) {
+        // Apps Script a volte risponde con una pagina HTML di errore invece del JSON
+        throw new Error('Risposta non valida dal backend');
+      }
+    } catch (e) {
+      clearTimeout(timer);
+      ultimoErrore = e;
+      if (i < tentativi - 1) {
+        await new Promise(function(r){ setTimeout(r, 800 * Math.pow(2, i)); });  // 0.8s, poi 1.6s
+      }
+    }
+  }
+  throw ultimoErrore;
+}
+
 async function fetchData() {
   setSyncStatus('', 'Connessione al Google Sheet...');
   renderLoading(activeTab);
   try {
-    const res = await fetch(URL + '?action=leggi');
-    const dati = await res.json();
+    const dati = await backendFetch(URL + '?action=leggi');
     if (dati.errore) throw new Error(dati.errore);
     db.bianchi = dati.bianchi || [];
     db.rossi = dati.rossi || [];
@@ -788,8 +821,7 @@ async function aggiornaSheet(categoria, id, nuovaQty, acquisto) {
   try {
     let url = URL + '?action=aggiorna&categoria=' + categoria + '&id=' + id + '&quantita=' + nuovaQty + '&token=' + encodeURIComponent(getToken());
     if (acquisto && acquisto > 0) url += '&acquisto=' + acquisto;
-    const res = await fetch(url);
-    const r = await res.json();
+    const r = await backendFetch(url);
     if (authFallita(r)) { setSyncStatus('err', 'Sessione scaduta — reinserisci la password'); return; }
     if (r.errore) throw new Error(r.errore);
     setSyncStatus('ok', 'Salvato su Google Sheet');
@@ -818,8 +850,7 @@ async function aggiungiSheetCompleto(categoria, nome, produttore, vitigni, regio
       + '&soglia=' + soglia
       + '&area=' + encodeURIComponent(area || '')
       + '&token=' + encodeURIComponent(getToken());
-    const res = await fetch(url);
-    const r = await res.json();
+    const r = await backendFetch(url);
     if (authFallita(r)) { setSyncStatus('err', 'Sessione scaduta — reinserisci la password'); return; }
     if (r.errore) throw new Error(r.errore);
     setSyncStatus('ok', 'Aggiunto e salvato su Google Sheet');
@@ -1029,8 +1060,7 @@ function toggleNascosto(cat, id) {
   w.nascosto = !w.nascosto;
   renderList(cat);
   setSyncStatus('', 'Salvataggio...');
-  fetch(URL + '?action=nascondi&categoria=' + cat + '&id=' + id + '&nascosto=' + (w.nascosto ? '1' : '0') + '&token=' + encodeURIComponent(getToken()))
-    .then(r => r.json())
+  backendFetch(URL + '?action=nascondi&categoria=' + cat + '&id=' + id + '&nascosto=' + (w.nascosto ? '1' : '0') + '&token=' + encodeURIComponent(getToken()))
     .then(r => {
       if (authFallita(r)) { setSyncStatus('err', 'Sessione scaduta — reinserisci la password'); return; }
       if (r.errore) throw new Error(r.errore);
@@ -1131,8 +1161,7 @@ async function renderStatistiche() {
     <div id="stats-body"><div class="empty">Caricamento statistiche…</div></div>
   `;
   try {
-    const res = await fetch(URL + '?action=statistiche&token=' + encodeURIComponent(getToken()));
-    const r = await res.json();
+    const r = await backendFetch(URL + '?action=statistiche&token=' + encodeURIComponent(getToken()));
     if (authFallita(r)) return;
     if (r.errore) throw new Error(r.errore);
     document.getElementById('stats-body').innerHTML =
@@ -1187,8 +1216,7 @@ async function salvaSnapshotOra() {
   if (!confirm('Salvare adesso una fotografia delle giacenze attuali? (di norma avviene da solo ogni domenica)')) return;
   setSyncStatus('', 'Salvataggio fotografia…');
   try {
-    const res = await fetch(URL + '?action=salvaSnapshot&token=' + encodeURIComponent(getToken()));
-    const r = await res.json();
+    const r = await backendFetch(URL + '?action=salvaSnapshot&token=' + encodeURIComponent(getToken()));
     if (authFallita(r)) { setSyncStatus('err', 'Sessione scaduta — reinserisci la password'); return; }
     if (r.errore) throw new Error(r.errore);
     setSyncStatus('ok', 'Fotografia salvata (' + (r.righe || 0) + ' vini)');
@@ -1230,12 +1258,11 @@ async function generaAdj(vino) {
       produttore: vino.produttore || '',
       vitigno: vino.vitigno || ''
     });
-    const res = await fetch(URL, {
+    const data = await backendFetch(URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params.toString()
     });
-    const data = await res.json();
     if (data.errore) return '';
     return (data.adj || '').trim();
   } catch(e) {
@@ -1267,7 +1294,7 @@ async function generaTutti() {
         if (vino) vino.adj = adj;
         // Salva nel foglio
         try {
-          await fetch(URL + '?action=salvaAdj&categoria=' + v._cat + '&id=' + v.id + '&adj=' + encodeURIComponent(adj) + '&token=' + encodeURIComponent(getToken()));
+          await backendFetch(URL + '?action=salvaAdj&categoria=' + v._cat + '&id=' + v.id + '&adj=' + encodeURIComponent(adj) + '&token=' + encodeURIComponent(getToken()));
         } catch(e) {}
       }
     }));
@@ -1291,7 +1318,7 @@ async function generaAdjNuovo(cat, id) {
   vino.adjLoading = false;
   if (adj) {
     try {
-      await fetch(URL + '?action=salvaAdj&categoria=' + cat + '&id=' + vino.id + '&adj=' + encodeURIComponent(adj) + '&token=' + encodeURIComponent(getToken()));
+      await backendFetch(URL + '?action=salvaAdj&categoria=' + cat + '&id=' + vino.id + '&adj=' + encodeURIComponent(adj) + '&token=' + encodeURIComponent(getToken()));
     } catch(e) {}
   }
   renderList(cat);
@@ -1343,13 +1370,13 @@ async function analizzaBolla(file) {
       mimeType: mimeType
     });
 
-    const res = await fetch(URL, {
+    // La bolla usa l'AI di visione: è lenta e costa, quindi timeout lungo e un
+    // solo tentativo (evitiamo di rianalizzare due volte lo stesso documento).
+    const data = await backendFetch(URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: urlParams.toString()
-    });
-
-    const data = await res.json();
+    }, 1, 120000);
     if (data.errore) throw new Error(data.errore);
 
     bollaRisultati = Array.isArray(data) ? data : [];
