@@ -714,7 +714,7 @@ const TOKEN_KEY = 'of_cantina_pw';
 function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
 
 async function tentaLogin() {
-  const pw = document.getElementById('login-pw').value;
+  const pw = document.getElementById('login-pw').value.trim();  // evita spazi accidentali (tastiera telefono)
   const err = document.getElementById('login-err');
   const btn = document.getElementById('login-btn');
   if (!pw) return;
