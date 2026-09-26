@@ -413,20 +413,29 @@ function indiceRegione(regione) {
   return 999; // regione sconosciuta o vuota: in fondo
 }
 
+// Regione di un vino per l'ordinamento: prima la colonna regione; se vuota,
+// la parte dopo "IT," nel codice zona (es. "IT, Toscana" -> "Toscana").
+function regioneDi(v) {
+  if (v.regione && String(v.regione).trim()) return v.regione;
+  const m = String(v.area || '').trim().match(/^it[\s,]+(.+)$/i);
+  return m ? m[1] : '';
+}
+
 // Contenuto di una categoria: con sottocategorie Italia/Estero se cat.sub
 function contenutoCategoria(cat, vini) {
   if (!cat.sub) return vini.map(rigaVino).join('');
 
   const italia = [], estero = [], altri = [];
   vini.forEach(v => {
-    const a = String(v.area || '').trim().toLowerCase();
-    if (a === 'italia') italia.push(v);
-    else if (a === 'estero') estero.push(v);
-    else altri.push(v);  // area non impostata: mostrato comunque (senza sottotitolo)
+    const a = String(v.area || '').trim();
+    if (!a) altri.push(v);              // zona non impostata: mostrato comunque (senza sottotitolo)
+    else if (/^it/i.test(a)) italia.push(v);   // "IT", "IT, Toscana", "Italia"… -> Italiani
+    else estero.push(v);               // FR, SV, SP e ogni altro prefisso -> Estero
   });
 
-  // I vini italiani vengono ordinati per regione, da nord a sud
-  italia.sort((a, b) => indiceRegione(a.regione) - indiceRegione(b.regione));
+  // I vini italiani vengono ordinati per regione, da nord a sud. La regione è
+  // presa dalla colonna regione oppure, se vuota, dal codice zona "IT, regione".
+  italia.sort((a, b) => indiceRegione(regioneDi(a)) - indiceRegione(regioneDi(b)));
 
   let out = '';
   if (italia.length) out += '<div class="subcat">Italia</div>' + italia.map(rigaVino).join('');
