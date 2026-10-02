@@ -232,6 +232,36 @@
   .retry:hover { background: var(--wine); color: var(--paper-2); }
 
   .hidden { display: none; }
+
+  /* ── Pulsante stampa (solo a schermo) ─────────────────── */
+  .toolbar { display: flex; justify-content: flex-end; margin: 0 0 0.6rem; }
+  .print-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--sans); font-size: 13px; color: var(--wine);
+    background: none; border: 1px solid var(--rule); border-radius: 8px;
+    padding: 7px 12px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .print-btn:hover { background: var(--wine); color: var(--paper-2); border-color: var(--wine); }
+
+  /* ── Versione da stampare (A4) ────────────────────────── */
+  @media print {
+    @page { margin: 14mm; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { background: #fff; }
+    .wrap { max-width: none; padding: 0; margin: 0; }
+    /* nascondi gli elementi interattivi */
+    .toolbar, #search-wrap, #loading, .cat-head .chev, .retry { display: none !important; }
+    /* apri tutte le categorie, anche se chiuse a schermo */
+    .panel { grid-template-rows: 1fr !important; }
+    .panel-inner { overflow: visible !important; }
+    .cat { border-bottom: none; }
+    .cat-head { padding: 0.5rem 0 0.2rem; cursor: default; }
+    .cat-head h2 { font-size: 20px; }
+    /* evita tagli brutti tra le pagine */
+    .cat-head, .subcat { break-after: avoid; page-break-after: avoid; }
+    .wine { break-inside: avoid; page-break-inside: avoid; padding: 0.4rem 0; }
+    header { padding: 0 0 0.3rem; }
+  }
 </style>
 </head>
 <body>
@@ -242,6 +272,13 @@
 </header>
 
 <div class="wrap">
+
+  <div class="toolbar" id="toolbar">
+    <button class="print-btn" type="button" onclick="stampaCarta()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Stampa / Salva PDF
+    </button>
+  </div>
 
   <div class="search" id="search-wrap">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -504,6 +541,13 @@ el('search').addEventListener('input', (e) => {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') carica();
 });
+
+// Stampa / salva PDF: stampa sempre la carta COMPLETA (toglie la ricerca) e
+// tutte le categorie aperte (gestito dal CSS @media print).
+function stampaCarta() {
+  if (filtro.trim() !== '') { filtro = ''; el('search').value = ''; render(); }
+  window.print();
+}
 
 carica();
 </script>
