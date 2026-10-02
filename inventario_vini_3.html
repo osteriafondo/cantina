@@ -543,6 +543,7 @@
   <h1>Cantina · Osteria Fondo</h1>
   <div class="header-right">
     <span id="last-sync">—</span>
+    <button class="logout-btn" id="stampa-carta-btn" title="Apri la carta vini pronta da stampare o salvare in PDF">Stampa carta</button>
     <button class="logout-btn" id="logout-btn" title="Esci dal gestionale">Esci</button>
   </div>
 </header>
@@ -1578,6 +1579,11 @@ function resetBolla() {
 document.getElementById('login-btn').addEventListener('click', tentaLogin);
 document.getElementById('login-pw').addEventListener('keydown', function(e){ if (e.key === 'Enter') tentaLogin(); });
 document.getElementById('logout-btn').addEventListener('click', logout);
+// Apre la carta vini (stessa cartella) in versione stampabile: si apre da sola
+// la finestra di stampa, da cui si puo stampare o salvare in PDF.
+document.getElementById('stampa-carta-btn').addEventListener('click', function(){
+  window.open('carta_vini.html?stampa=1', '_blank');
+});
 
 if (getToken()) {
   document.getElementById('login-overlay').style.display = 'none';
