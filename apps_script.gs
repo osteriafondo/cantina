@@ -44,6 +44,8 @@ function handleRequest(e) {
       result = statistiche();
     } else if (action === 'salvaSnapshot') {
       result = salvaSnapshot();
+    } else if (action && action.indexOf('ordini') === 0) {
+      result = gestisciOrdini(ss, action, params);  // file Ordini.gs (controlla da solo la password)
     } else {
       result = { errore: 'Azione non riconosciuta' };
     }
