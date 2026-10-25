@@ -33,6 +33,7 @@
   color-scheme: light;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.45; padding-top: env(safe-area-inset-top, 0px); }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
@@ -295,7 +296,7 @@ const fmt = v => eur.format(v || 0);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const rid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 const clone = o => JSON.parse(JSON.stringify(o ?? null));
-const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const parseNum = s => {
   if (typeof s === 'number') return s;
   s = String(s ?? '').replace(/[€\s]/g, '');
