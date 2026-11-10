@@ -438,12 +438,23 @@ function indiceRegione(regione) {
   return 999; // regione sconosciuta o vuota: in fondo
 }
 
+// Un vino è italiano se nella zona compare il codice IT in qualsiasi posizione
+// ("IT, Toscana", "Toscana IT", "IT") o la parola Italia. Tutto il resto
+// (FR, SV, SP, DE…) è Estero.
+function zonaItaliana(area) {
+  const a = String(area || '').trim().toUpperCase();
+  return /\bIT\b/.test(a) || /\bITAL/.test(a);
+}
+
 // Regione di un vino per l'ordinamento: prima la colonna regione; se vuota,
-// la parte dopo "IT," nel codice zona (es. "IT, Toscana" -> "Toscana").
+// la zona senza il codice IT (es. "IT, Toscana" o "Toscana IT" -> "Toscana").
 function regioneDi(v) {
   if (v.regione && String(v.regione).trim()) return v.regione;
-  const m = String(v.area || '').trim().match(/^it[\s,]+(.+)$/i);
-  return m ? m[1] : '';
+  return String(v.area || '')
+    .replace(/\bit\b/ig, ' ')
+    .replace(/\bital[a-z]*\b/ig, ' ')   // "Italia" / "Italiano"
+    .replace(/[,;|/]+/g, ' ')
+    .trim();
 }
 
 // Contenuto di una categoria: con sottocategorie Italia/Estero se cat.sub
@@ -453,9 +464,9 @@ function contenutoCategoria(cat, vini) {
   const italia = [], estero = [], altri = [];
   vini.forEach(v => {
     const a = String(v.area || '').trim();
-    if (!a) altri.push(v);              // zona non impostata: mostrato comunque (senza sottotitolo)
-    else if (/^it/i.test(a)) italia.push(v);   // "IT", "IT, Toscana", "Italia"… -> Italiani
-    else estero.push(v);               // FR, SV, SP e ogni altro prefisso -> Estero
+    if (!a) altri.push(v);                 // zona non impostata: mostrato comunque (senza sottotitolo)
+    else if (zonaItaliana(a)) italia.push(v);   // contiene "IT" (ovunque) o "Italia" -> Italiani
+    else estero.push(v);                   // FR, SV, SP e ogni altra provenienza -> Estero
   });
 
   // I vini italiani vengono ordinati per regione, da nord a sud. La regione è
